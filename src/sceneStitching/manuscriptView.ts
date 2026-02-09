@@ -1,16 +1,30 @@
 import * as vscode from 'vscode';
 import { getProjectFile } from '../config';
-import { getManuscript, clearManuscriptCache } from './sceneList';
+import { getManuscript, clearManuscriptCache, type ManuscriptResult } from './sceneList';
 import {
-  serializeToYaml,
   moveScene as moveSceneInData,
   reorderChapters,
-  scenePathsRelativeTo,
 } from './projectYaml';
+import { buildProjectYamlToFile, writeProjectYaml } from './projectFile';
 import type { ManuscriptData } from './projectYaml';
 
 const VIEW_ID = 'noveltools.manuscript';
 const MIME_TREE = `application/vnd.code.tree.${VIEW_ID}`;
+const QUICK_START_FALLBACK = `# NovelTools Quick Start
+
+1. Create a project file
+   - Run "NovelTools: Build Project YAML" to create \`noveltools.yaml\` from your scene files.
+
+2. Use the Manuscript view
+   - Drag chapters and scenes to reorder. Changes are written back to the YAML.
+
+3. Read the stitched manuscript
+   - Run "NovelTools: Open Stitched Manuscript" to view the whole draft at once.
+
+Tips
+- Settings live under "NovelTools" in VS Code Settings.
+- Word counts and typewriter sounds are optional toggles.
+`;
 
 type TreeNode = RootNode | ChapterNode | SceneNode;
 
@@ -94,6 +108,36 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('noveltools.openProjectYaml', async () => {
+      const result = await getManuscript();
+      if (result.projectFileUri) {
+        const doc = await vscode.workspace.openTextDocument(result.projectFileUri);
+        await vscode.window.showTextDocument(doc, { preview: false });
+        return;
+      }
+      const choice = await vscode.window.showInformationMessage(
+        'No project YAML found. Build one now?',
+        'Build Project YAML'
+      );
+      if (choice === 'Build Project YAML') {
+        await vscode.commands.executeCommand('noveltools.buildProjectYaml');
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('noveltools.openSettings', async () => {
+      await vscode.commands.executeCommand('workbench.action.openSettings', 'noveltools');
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('noveltools.showQuickStart', async () => {
+      await openQuickStart(context);
+    })
+  );
+
+  context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((doc) => {
       const name = doc.uri.path.split(/[/\\]/).pop();
       if (name === 'noveltools.yaml' || name?.endsWith('manuscript.yaml')) {
@@ -138,8 +182,9 @@ class ManuscriptTreeDataProvider
 
   async getChildren(element?: TreeNode): Promise<TreeNode[]> {
     const result = await getManuscript();
+    await updateViewContext(result);
     if (!result.data && !element) {
-      return [{ type: 'root', label: 'No manuscript. Add a noveltools.yaml to get started.', data: null }];
+      return [];
     }
     if (element) {
       if (element.type === 'root' && element.data) {
@@ -160,6 +205,9 @@ class ManuscriptTreeDataProvider
           data: element.data,
         }));
       }
+      return [];
+    }
+    if (!result.data) {
       return [];
     }
     const label = result.data?.title ?? 'Manuscript';
@@ -244,23 +292,23 @@ class ManuscriptTreeDataProvider
   }
 }
 
-async function writeProjectYaml(uri: vscode.Uri, data: ManuscriptData): Promise<void> {
-  const yaml = serializeToYaml(data);
-  const doc = await vscode.workspace.openTextDocument(uri);
-  const edit = new vscode.WorkspaceEdit();
-  const fullRange = new vscode.Range(0, 0, doc.lineCount, 0);
-  edit.replace(uri, fullRange, yaml);
-  await vscode.workspace.applyEdit(edit);
+async function updateViewContext(result: ManuscriptResult): Promise<void> {
+  await vscode.commands.executeCommand('setContext', 'noveltools.hasProjectFile', !!result.projectFileUri);
+  await vscode.commands.executeCommand('setContext', 'noveltools.hasScenes', result.flatUris.length > 0);
 }
 
-/** Create or overwrite project YAML at targetUri with data; scene paths are written relative to the file's directory. */
-async function buildProjectYamlToFile(targetUri: vscode.Uri, data: ManuscriptData): Promise<void> {
-  const baseDir = vscode.Uri.joinPath(targetUri, '..');
-  const chapters = data.chapters.map((ch) => ({
-    ...ch,
-    scenePaths: scenePathsRelativeTo(baseDir, ch.sceneUris),
-  }));
-  const dataForWrite: ManuscriptData = { ...data, chapters, projectFileUri: targetUri };
-  const yaml = serializeToYaml(dataForWrite);
-  await vscode.workspace.fs.writeFile(targetUri, Buffer.from(yaml, 'utf8'));
+async function openQuickStart(context: vscode.ExtensionContext): Promise<void> {
+  const readmeUri = vscode.Uri.joinPath(context.extensionUri, 'README.md');
+  try {
+    const doc = await vscode.workspace.openTextDocument(readmeUri);
+    await vscode.window.showTextDocument(doc, { preview: false });
+    return;
+  } catch {
+    // Fall back to an in-memory quick start guide.
+  }
+  const doc = await vscode.workspace.openTextDocument({
+    content: QUICK_START_FALLBACK,
+    language: 'markdown',
+  });
+  await vscode.window.showTextDocument(doc, { preview: false });
 }

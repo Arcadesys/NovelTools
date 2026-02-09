@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getProjectFile = getProjectFile;
 exports.getSceneFiles = getSceneFiles;
 exports.getSceneGlob = getSceneGlob;
+exports.getChapterGrouping = getChapterGrouping;
 exports.getTypewriterSoundEnabled = getTypewriterSoundEnabled;
 exports.getTypewriterSoundVolume = getTypewriterSoundVolume;
 exports.getTypewriterSoundPath = getTypewriterSoundPath;
@@ -51,6 +52,10 @@ function getSceneFiles() {
 }
 function getSceneGlob() {
     return vscode.workspace.getConfiguration(SECTION).get('sceneGlob') ?? '**/*.md';
+}
+function getChapterGrouping() {
+    const grouping = vscode.workspace.getConfiguration(SECTION).get('chapterGrouping') ?? 'flat';
+    return grouping === 'folder' ? 'folder' : 'flat';
 }
 function getTypewriterSoundEnabled() {
     return vscode.workspace.getConfiguration(SECTION).get('typewriterSound.enabled') ?? true;

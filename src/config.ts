@@ -14,6 +14,11 @@ export function getSceneGlob(): string {
   return vscode.workspace.getConfiguration(SECTION).get<string>('sceneGlob') ?? '**/*.md';
 }
 
+export function getChapterGrouping(): 'flat' | 'folder' {
+  const grouping = vscode.workspace.getConfiguration(SECTION).get<string>('chapterGrouping') ?? 'flat';
+  return grouping === 'folder' ? 'folder' : 'flat';
+}
+
 export function getTypewriterSoundEnabled(): boolean {
   return vscode.workspace.getConfiguration(SECTION).get<boolean>('typewriterSound.enabled') ?? true;
 }

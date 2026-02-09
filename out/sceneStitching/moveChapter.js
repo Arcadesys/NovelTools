@@ -37,6 +37,7 @@ exports.registerMoveChapter = registerMoveChapter;
 const vscode = __importStar(require("vscode"));
 const sceneList_1 = require("./sceneList");
 const projectYaml_1 = require("./projectYaml");
+const projectFile_1 = require("./projectFile");
 function registerMoveChapter(context) {
     context.subscriptions.push(vscode.commands.registerCommand('noveltools.moveChapterUp', () => moveChapter(-1)), vscode.commands.registerCommand('noveltools.moveChapterDown', () => moveChapter(1)));
 }
@@ -65,12 +66,7 @@ async function moveChapter(delta) {
     if (toIndex < 0 || toIndex >= result.data.chapters.length)
         return;
     const next = (0, projectYaml_1.reorderChapters)(result.data, chapterIndex, toIndex);
-    const yaml = (0, projectYaml_1.serializeToYaml)(next);
-    const doc = await vscode.workspace.openTextDocument(result.projectFileUri);
-    const edit = new vscode.WorkspaceEdit();
-    const fullRange = new vscode.Range(0, 0, doc.lineCount, 0);
-    edit.replace(result.projectFileUri, fullRange, yaml);
-    await vscode.workspace.applyEdit(edit);
+    await (0, projectFile_1.writeProjectYaml)(result.projectFileUri, next);
     (0, sceneList_1.clearManuscriptCache)();
 }
 //# sourceMappingURL=moveChapter.js.map

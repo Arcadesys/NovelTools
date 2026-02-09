@@ -36,10 +36,56 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getManuscript = getManuscript;
 exports.getManuscriptUris = getManuscriptUris;
 exports.clearManuscriptCache = clearManuscriptCache;
+const path = __importStar(require("path"));
 const vscode = __importStar(require("vscode"));
 const config_1 = require("../config");
 const projectYaml_1 = require("./projectYaml");
 let cached = null;
+function normalizePathForGrouping(scenePath) {
+    return scenePath.replace(/\\/g, '/');
+}
+function groupScenesByFolder(scenePaths, sceneUris) {
+    const order = [];
+    const chaptersByKey = new Map();
+    for (let i = 0; i < scenePaths.length; i++) {
+        const scenePath = normalizePathForGrouping(scenePaths[i]);
+        const dir = path.posix.dirname(scenePath);
+        const key = dir === '.' ? '' : dir;
+        let chapter = chaptersByKey.get(key);
+        if (!chapter) {
+            chapter = {
+                title: dir === '.' ? 'Root' : path.posix.basename(dir),
+                sceneUris: [],
+                scenePaths: [],
+            };
+            chaptersByKey.set(key, chapter);
+            order.push(key);
+        }
+        chapter.sceneUris.push(sceneUris[i]);
+        chapter.scenePaths.push(scenePaths[i]);
+    }
+    const titleCounts = new Map();
+    for (const key of order) {
+        const title = chaptersByKey.get(key)?.title ?? '';
+        titleCounts.set(title, (titleCounts.get(title) ?? 0) + 1);
+    }
+    for (const key of order) {
+        const chapter = chaptersByKey.get(key);
+        if (!chapter)
+            continue;
+        const title = chapter.title ?? '';
+        if ((titleCounts.get(title) ?? 0) > 1) {
+            chapter.title = key === '' ? 'Root' : key;
+        }
+    }
+    return order.map((key) => chaptersByKey.get(key)).filter(Boolean);
+}
+function buildChapters(scenePaths, sceneUris, grouping) {
+    if (grouping === 'folder') {
+        return groupScenesByFolder(scenePaths, sceneUris);
+    }
+    return [{ title: undefined, sceneUris, scenePaths }];
+}
 async function findProjectFile() {
     const name = (0, config_1.getProjectFile)();
     const folders = vscode.workspace.workspaceFolders;
@@ -83,32 +129,35 @@ async function loadFromConfig() {
     if (!folders?.length)
         return { data: null, flatUris: [], projectFileUri: null };
     const root = folders[0].uri;
+    const grouping = (0, config_1.getChapterGrouping)();
     if (sceneFiles.length > 0) {
         const flatUris = sceneFiles.map((p) => vscode.Uri.joinPath(root, p));
+        const chapters = buildChapters(sceneFiles, flatUris, grouping);
+        const flattened = chapters.flatMap((ch) => ch.sceneUris);
         const data = {
             title: undefined,
-            chapters: [{ title: undefined, sceneUris: flatUris, scenePaths: sceneFiles }],
-            flatUris,
+            chapters,
+            flatUris: flattened,
             projectFileUri: null,
         };
-        return { data, flatUris, projectFileUri: null };
+        return { data, flatUris: flattened, projectFileUri: null };
     }
     const glob = (0, config_1.getSceneGlob)();
     const found = await vscode.workspace.findFiles(glob);
     const sorted = found.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
+    if (sorted.length === 0) {
+        return { data: null, flatUris: [], projectFileUri: null };
+    }
+    const scenePaths = sorted.map((u) => normalizePathForGrouping(vscode.workspace.asRelativePath(u)));
+    const chapters = buildChapters(scenePaths, sorted, grouping);
+    const flattened = chapters.flatMap((ch) => ch.sceneUris);
     const data = {
         title: undefined,
-        chapters: [
-            {
-                title: undefined,
-                sceneUris: sorted,
-                scenePaths: sorted.map((u) => vscode.workspace.asRelativePath(u)),
-            },
-        ],
-        flatUris: sorted,
+        chapters,
+        flatUris: flattened,
         projectFileUri: null,
     };
-    return { data, flatUris: sorted, projectFileUri: null };
+    return { data, flatUris: flattened, projectFileUri: null };
 }
 async function getManuscript() {
     const root = vscode.workspace.workspaceFolders?.[0]?.uri.toString() ?? '';

@@ -43,6 +43,7 @@ Paths are relative to the directory containing the project file. The Manuscript 
 | `noveltools.projectFile` | Project YAML filename or path (default: `noveltools.yaml`). |
 | `noveltools.sceneFiles` | Fallback: ordered scene paths when no project file. |
 | `noveltools.sceneGlob` | Fallback: glob for scene files when no project file (default: `**/*.md`). |
+| `noveltools.chapterGrouping` | When building from files without a project YAML: `flat` (one chapter) or `folder` (group by folder). |
 | `noveltools.typewriterSound.enabled` | Enable typewriter sound (default: true). |
 | `noveltools.typewriterSound.volume` | Volume 0–1 (default: 0.3). |
 | `noveltools.typewriterSound.path` | Optional path to a custom WAV file. |
