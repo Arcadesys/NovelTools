@@ -1,0 +1,108 @@
+{
+  "name": "noveltools",
+  "displayName": "NovelTools",
+  "description": "Long-form writing: scene stitching, manuscript sidebar, typewriter sounds, word counts",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [
+    "onLanguage:markdown",
+    "onView:noveltools.manuscript"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "NovelTools",
+      "properties": {
+        "noveltools.projectFile": {
+          "type": "string",
+          "default": "noveltools.yaml",
+          "description": "Project YAML filename (or path relative to workspace root)."
+        },
+        "noveltools.sceneFiles": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Fallback: ordered scene paths when no project file. Overrides glob if set."
+        },
+        "noveltools.sceneGlob": {
+          "type": "string",
+          "default": "**/*.md",
+          "description": "Fallback: glob when no project file and sceneFiles empty; one flat chapter."
+        },
+        "noveltools.typewriterSound.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable typewriter sound on keypress."
+        },
+        "noveltools.typewriterSound.volume": {
+          "type": "number",
+          "default": 0.3,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Volume for typewriter sound (0-1)."
+        },
+        "noveltools.typewriterSound.path": {
+          "type": "string",
+          "default": "",
+          "description": "Optional custom WAV path (resource path)."
+        },
+        "noveltools.wordCount.stripMarkdown": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, strip markdown before counting words."
+        },
+        "noveltools.wordCount.manuscriptScope": {
+          "type": "string",
+          "default": "project",
+          "enum": ["project", "workspace"],
+          "description": "Use project YAML scene list; or 'workspace' to count all .md in workspace."
+        }
+      }
+    },
+    "commands": [
+      { "command": "noveltools.nextScene", "title": "NovelTools: Next Scene" },
+      { "command": "noveltools.previousScene", "title": "NovelTools: Previous Scene" },
+      { "command": "noveltools.goToScene", "title": "NovelTools: Go to Scene…" },
+      { "command": "noveltools.nextChapter", "title": "NovelTools: Next Chapter" },
+      { "command": "noveltools.previousChapter", "title": "NovelTools: Previous Chapter" },
+      { "command": "noveltools.goToChapter", "title": "NovelTools: Go to Chapter…" },
+      { "command": "noveltools.moveChapterUp", "title": "NovelTools: Move Chapter Up" },
+      { "command": "noveltools.moveChapterDown", "title": "NovelTools: Move Chapter Down" },
+      { "command": "noveltools.openStitchedManuscript", "title": "NovelTools: Open Stitched Manuscript" },
+      { "command": "noveltools.refreshManuscript", "title": "NovelTools: Refresh Manuscript View" }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "noveltools",
+          "title": "NovelTools",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "noveltools": [
+        {
+          "id": "noveltools.manuscript",
+          "name": "Manuscript"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "^18.x",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "yaml": "^2.3.0"
+  }
+}
