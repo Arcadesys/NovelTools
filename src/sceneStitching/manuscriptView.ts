@@ -1,6 +1,12 @@
 import * as vscode from 'vscode';
+import { getProjectFile } from '../config';
 import { getManuscript, clearManuscriptCache } from './sceneList';
-import { serializeToYaml, moveScene as moveSceneInData, reorderChapters } from './projectYaml';
+import {
+  serializeToYaml,
+  moveScene as moveSceneInData,
+  reorderChapters,
+  scenePathsRelativeTo,
+} from './projectYaml';
 import type { ManuscriptData } from './projectYaml';
 
 const VIEW_ID = 'noveltools.manuscript';
@@ -59,6 +65,29 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('noveltools.refreshManuscript', () => {
+      clearManuscriptCache();
+      treeDataProvider.refresh();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('noveltools.buildProjectYaml', async () => {
+      const result = await getManuscript();
+      if (!result.data) {
+        await vscode.window.showInformationMessage(
+          'No manuscript files found. Configure noveltools.sceneFiles or noveltools.sceneGlob, or add markdown files.'
+        );
+        return;
+      }
+      const folders = vscode.workspace.workspaceFolders;
+      if (!folders?.length) return;
+      const name = getProjectFile();
+      const segments = name.split(/[/\\]/);
+      const targetUri =
+        segments.length > 1
+          ? vscode.Uri.joinPath(folders[0].uri, ...segments)
+          : vscode.Uri.joinPath(folders[0].uri, name);
+      await buildProjectYamlToFile(targetUri, result.data);
       clearManuscriptCache();
       treeDataProvider.refresh();
     })
@@ -165,7 +194,21 @@ class ManuscriptTreeDataProvider
     }
     if (payload.length === 0) return;
     const source = payload[0];
-    const result = await getManuscript();
+    let result = await getManuscript();
+    if (!result.data) return;
+    if (!result.projectFileUri) {
+      const folders = vscode.workspace.workspaceFolders;
+      if (!folders?.length) return;
+      const name = getProjectFile();
+      const segments = name.split(/[/\\]/);
+      const targetUri =
+        segments.length > 1
+          ? vscode.Uri.joinPath(folders[0].uri, ...segments)
+          : vscode.Uri.joinPath(folders[0].uri, name);
+      await buildProjectYamlToFile(targetUri, result.data);
+      clearManuscriptCache();
+      result = await getManuscript();
+    }
     if (!result.data || !result.projectFileUri) return;
 
     if (source.type === 'chapter') {
@@ -208,4 +251,16 @@ async function writeProjectYaml(uri: vscode.Uri, data: ManuscriptData): Promise<
   const fullRange = new vscode.Range(0, 0, doc.lineCount, 0);
   edit.replace(uri, fullRange, yaml);
   await vscode.workspace.applyEdit(edit);
+}
+
+/** Create or overwrite project YAML at targetUri with data; scene paths are written relative to the file's directory. */
+async function buildProjectYamlToFile(targetUri: vscode.Uri, data: ManuscriptData): Promise<void> {
+  const baseDir = vscode.Uri.joinPath(targetUri, '..');
+  const chapters = data.chapters.map((ch) => ({
+    ...ch,
+    scenePaths: scenePathsRelativeTo(baseDir, ch.sceneUris),
+  }));
+  const dataForWrite: ManuscriptData = { ...data, chapters, projectFileUri: targetUri };
+  const yaml = serializeToYaml(dataForWrite);
+  await vscode.workspace.fs.writeFile(targetUri, Buffer.from(yaml, 'utf8'));
 }

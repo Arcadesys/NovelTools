@@ -72,7 +72,8 @@
       { "command": "noveltools.moveChapterUp", "title": "NovelTools: Move Chapter Up" },
       { "command": "noveltools.moveChapterDown", "title": "NovelTools: Move Chapter Down" },
       { "command": "noveltools.openStitchedManuscript", "title": "NovelTools: Open Stitched Manuscript" },
-      { "command": "noveltools.refreshManuscript", "title": "NovelTools: Refresh Manuscript View" }
+      { "command": "noveltools.refreshManuscript", "title": "NovelTools: Refresh Manuscript View" },
+      { "command": "noveltools.buildProjectYaml", "title": "NovelTools: Build Project YAML" }
     ],
     "viewsContainers": {
       "activitybar": [
@@ -95,12 +96,15 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "dev": "npm run compile",
+    "package": "npm run compile && npx vsce package --no-dependencies"
   },
   "devDependencies": {
     "@types/vscode": "^1.74.0",
     "@types/node": "^18.x",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "@vscode/vsce": "^2.22.0"
   },
   "dependencies": {
     "yaml": "^2.3.0"

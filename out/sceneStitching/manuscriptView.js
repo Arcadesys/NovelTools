@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerManuscriptView = registerManuscriptView;
 const vscode = __importStar(require("vscode"));
+const config_1 = require("../config");
 const sceneList_1 = require("./sceneList");
 const projectYaml_1 = require("./projectYaml");
 const VIEW_ID = 'noveltools.manuscript';
@@ -64,6 +65,24 @@ function registerManuscriptView(context) {
         }
     });
     context.subscriptions.push(vscode.commands.registerCommand('noveltools.refreshManuscript', () => {
+        (0, sceneList_1.clearManuscriptCache)();
+        treeDataProvider.refresh();
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('noveltools.buildProjectYaml', async () => {
+        const result = await (0, sceneList_1.getManuscript)();
+        if (!result.data) {
+            await vscode.window.showInformationMessage('No manuscript files found. Configure noveltools.sceneFiles or noveltools.sceneGlob, or add markdown files.');
+            return;
+        }
+        const folders = vscode.workspace.workspaceFolders;
+        if (!folders?.length)
+            return;
+        const name = (0, config_1.getProjectFile)();
+        const segments = name.split(/[/\\]/);
+        const targetUri = segments.length > 1
+            ? vscode.Uri.joinPath(folders[0].uri, ...segments)
+            : vscode.Uri.joinPath(folders[0].uri, name);
+        await buildProjectYamlToFile(targetUri, result.data);
         (0, sceneList_1.clearManuscriptCache)();
         treeDataProvider.refresh();
     }));
@@ -151,7 +170,22 @@ class ManuscriptTreeDataProvider {
         if (payload.length === 0)
             return;
         const source = payload[0];
-        const result = await (0, sceneList_1.getManuscript)();
+        let result = await (0, sceneList_1.getManuscript)();
+        if (!result.data)
+            return;
+        if (!result.projectFileUri) {
+            const folders = vscode.workspace.workspaceFolders;
+            if (!folders?.length)
+                return;
+            const name = (0, config_1.getProjectFile)();
+            const segments = name.split(/[/\\]/);
+            const targetUri = segments.length > 1
+                ? vscode.Uri.joinPath(folders[0].uri, ...segments)
+                : vscode.Uri.joinPath(folders[0].uri, name);
+            await buildProjectYamlToFile(targetUri, result.data);
+            (0, sceneList_1.clearManuscriptCache)();
+            result = await (0, sceneList_1.getManuscript)();
+        }
         if (!result.data || !result.projectFileUri)
             return;
         if (source.type === 'chapter') {
@@ -203,5 +237,16 @@ async function writeProjectYaml(uri, data) {
     const fullRange = new vscode.Range(0, 0, doc.lineCount, 0);
     edit.replace(uri, fullRange, yaml);
     await vscode.workspace.applyEdit(edit);
+}
+/** Create or overwrite project YAML at targetUri with data; scene paths are written relative to the file's directory. */
+async function buildProjectYamlToFile(targetUri, data) {
+    const baseDir = vscode.Uri.joinPath(targetUri, '..');
+    const chapters = data.chapters.map((ch) => ({
+        ...ch,
+        scenePaths: (0, projectYaml_1.scenePathsRelativeTo)(baseDir, ch.sceneUris),
+    }));
+    const dataForWrite = { ...data, chapters, projectFileUri: targetUri };
+    const yaml = (0, projectYaml_1.serializeToYaml)(dataForWrite);
+    await vscode.workspace.fs.writeFile(targetUri, Buffer.from(yaml, 'utf8'));
 }
 //# sourceMappingURL=manuscriptView.js.map

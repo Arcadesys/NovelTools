@@ -1,5 +1,15 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 import YAML from 'yaml';
+
+/** Returns scene paths relative to baseDir for serialization (forward slashes for portability). */
+export function scenePathsRelativeTo(baseDir: vscode.Uri, sceneUris: vscode.Uri[]): string[] {
+  const base = baseDir.fsPath;
+  return sceneUris.map((uri) => {
+    const rel = path.relative(base, uri.fsPath);
+    return rel.split(path.sep).join('/');
+  });
+}
 
 export interface ChapterData {
   title?: string;

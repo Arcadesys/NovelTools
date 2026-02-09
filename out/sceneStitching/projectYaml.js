@@ -36,12 +36,22 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.scenePathsRelativeTo = scenePathsRelativeTo;
 exports.parseProjectYaml = parseProjectYaml;
 exports.serializeToYaml = serializeToYaml;
 exports.reorderChapters = reorderChapters;
 exports.moveScene = moveScene;
+const path = __importStar(require("path"));
 const vscode = __importStar(require("vscode"));
 const yaml_1 = __importDefault(require("yaml"));
+/** Returns scene paths relative to baseDir for serialization (forward slashes for portability). */
+function scenePathsRelativeTo(baseDir, sceneUris) {
+    const base = baseDir.fsPath;
+    return sceneUris.map((uri) => {
+        const rel = path.relative(base, uri.fsPath);
+        return rel.split(path.sep).join('/');
+    });
+}
 function parseProjectYaml(content, projectFileUri) {
     try {
         const raw = yaml_1.default.parse(content);
