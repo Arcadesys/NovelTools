@@ -1,9 +1,14 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { getProjectFile, getSceneFiles, getSceneGlob, getChapterGrouping } from '../config';
-import { parseProjectYaml, type ManuscriptData, type ChapterData } from './projectYaml';
+import { getProjectFile, getSceneFiles, getSceneGlob, getChapterGrouping, getIndexYamlGlob } from '../config';
+import { parseProjectYaml, parseIndexYaml, parseLongformIndexYaml, parseLongformStrict, type ManuscriptData, type ChapterData } from './projectYaml';
 
-let cached: { result: ManuscriptResult; workspaceRoot: string } | null = null;
+const INDEX_YAML = 'index.yaml';
+const ACTIVE_PROJECT_URI_KEY = 'noveltools.activeProjectUri';
+
+let extensionContext: vscode.ExtensionContext | null = null;
+const cacheByUri = new Map<string, ManuscriptResult>();
+let cacheWorkspaceRoot: string | null = null;
 
 export interface ManuscriptResult {
   data: ManuscriptData | null;
@@ -62,7 +67,56 @@ function buildChapters(
   return [{ title: undefined, sceneUris, scenePaths }];
 }
 
+/** Called from extension activate to provide workspace state for active document. */
+export function initSceneList(context: vscode.ExtensionContext): void {
+  extensionContext = context;
+}
+
+function getWorkspaceKey(): string {
+  return vscode.workspace.workspaceFolders?.[0]?.uri.toString() ?? '';
+}
+
+export async function getActiveProjectUri(): Promise<vscode.Uri | null> {
+  if (!extensionContext) return null;
+  const stored = extensionContext.workspaceState.get<string>(ACTIVE_PROJECT_URI_KEY);
+  if (!stored) return null;
+  try {
+    return vscode.Uri.parse(stored);
+  } catch {
+    return null;
+  }
+}
+
+export async function setActiveProjectUri(uri: vscode.Uri): Promise<void> {
+  if (!extensionContext) return;
+  await extensionContext.workspaceState.update(ACTIVE_PROJECT_URI_KEY, uri.toString());
+}
+
+/** Find all index.yaml files matching the configured glob. */
+export async function findAllIndexYaml(): Promise<vscode.Uri[]> {
+  const glob = getIndexYamlGlob();
+  const found = await vscode.workspace.findFiles(glob);
+  return found.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
+}
+
+async function findIndexYaml(): Promise<vscode.Uri | null> {
+  const folders = vscode.workspace.workspaceFolders;
+  if (!folders?.length) return null;
+  for (const folder of folders) {
+    const candidate = vscode.Uri.joinPath(folder.uri, INDEX_YAML);
+    try {
+      await vscode.workspace.fs.readFile(candidate);
+      return candidate;
+    } catch {
+      // continue
+    }
+  }
+  return null;
+}
+
 async function findProjectFile(): Promise<vscode.Uri | null> {
+  const indexUri = await findIndexYaml();
+  if (indexUri) return indexUri;
   const name = getProjectFile();
   const folders = vscode.workspace.workspaceFolders;
   if (!folders?.length) return null;
@@ -88,10 +142,21 @@ async function findProjectFile(): Promise<vscode.Uri | null> {
   return null;
 }
 
+function isIndexYaml(uri: vscode.Uri): boolean {
+  const base = path.basename(uri.fsPath);
+  return base === INDEX_YAML;
+}
+
 async function loadFromProjectFile(uri: vscode.Uri): Promise<ManuscriptResult> {
   const bytes = await vscode.workspace.fs.readFile(uri);
   const content = new TextDecoder().decode(bytes);
-  const data = parseProjectYaml(content, uri);
+  let data =
+    parseLongformStrict(content, uri) ??
+    parseIndexYaml(content, uri) ??
+    parseLongformIndexYaml(content, uri);
+  if (!data && !isIndexYaml(uri)) {
+    data = parseProjectYaml(content, uri);
+  }
   if (data) {
     return { data, flatUris: data.flatUris, projectFileUri: uri };
   }
@@ -134,16 +199,60 @@ async function loadFromConfig(): Promise<ManuscriptResult> {
   return { data, flatUris: flattened, projectFileUri: null };
 }
 
-export async function getManuscript(): Promise<ManuscriptResult> {
-  const root = vscode.workspace.workspaceFolders?.[0]?.uri.toString() ?? '';
-  if (cached?.workspaceRoot === root) {
-    return cached.result;
+function cacheKey(uri: vscode.Uri | null): string {
+  return uri?.toString() ?? 'config';
+}
+
+/** Load manuscript for a specific project file URI (cached per URI). */
+export async function getManuscriptByUri(uri: vscode.Uri): Promise<ManuscriptResult> {
+  const root = getWorkspaceKey();
+  if (cacheWorkspaceRoot !== root) {
+    cacheByUri.clear();
+    cacheWorkspaceRoot = root;
   }
-  const projectUri = await findProjectFile();
-  const result = projectUri
-    ? await loadFromProjectFile(projectUri)
-    : await loadFromConfig();
-  cached = { result, workspaceRoot: root };
+  const key = cacheKey(uri);
+  const cached = cacheByUri.get(key);
+  if (cached) return cached;
+  const result = await loadFromProjectFile(uri);
+  cacheByUri.set(key, result);
+  return result;
+}
+
+export async function getManuscript(projectFileUri?: vscode.Uri): Promise<ManuscriptResult> {
+  const root = getWorkspaceKey();
+  if (cacheWorkspaceRoot !== root) {
+    cacheByUri.clear();
+    cacheWorkspaceRoot = root;
+  }
+
+  if (projectFileUri) {
+    return getManuscriptByUri(projectFileUri);
+  }
+
+  const allIndex = await findAllIndexYaml();
+  if (allIndex.length > 1) {
+    const activeUri = await getActiveProjectUri();
+    const uri = activeUri && allIndex.some((u) => u.toString() === activeUri.toString())
+      ? activeUri
+      : allIndex[0];
+    return getManuscriptByUri(uri);
+  }
+
+  if (allIndex.length === 1) {
+    return getManuscriptByUri(allIndex[0]);
+  }
+
+  const singleUri = await findProjectFile();
+  if (singleUri) {
+    return getManuscriptByUri(singleUri);
+  }
+
+  const configKey = 'config';
+  let result = cacheByUri.get(configKey);
+  if (!result) {
+    result = await loadFromConfig();
+    cacheByUri.set(configKey, result);
+  }
   return result;
 }
 
@@ -152,6 +261,11 @@ export async function getManuscriptUris(): Promise<ManuscriptResult> {
   return getManuscript();
 }
 
-export function clearManuscriptCache(): void {
-  cached = null;
+export function clearManuscriptCache(uri?: vscode.Uri): void {
+  if (uri) {
+    cacheByUri.delete(cacheKey(uri));
+  } else {
+    cacheByUri.clear();
+    cacheWorkspaceRoot = null;
+  }
 }

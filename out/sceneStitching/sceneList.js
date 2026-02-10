@@ -33,6 +33,11 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.initSceneList = initSceneList;
+exports.getActiveProjectUri = getActiveProjectUri;
+exports.setActiveProjectUri = setActiveProjectUri;
+exports.findAllIndexYaml = findAllIndexYaml;
+exports.getManuscriptByUri = getManuscriptByUri;
 exports.getManuscript = getManuscript;
 exports.getManuscriptUris = getManuscriptUris;
 exports.clearManuscriptCache = clearManuscriptCache;
@@ -40,7 +45,11 @@ const path = __importStar(require("path"));
 const vscode = __importStar(require("vscode"));
 const config_1 = require("../config");
 const projectYaml_1 = require("./projectYaml");
-let cached = null;
+const INDEX_YAML = 'index.yaml';
+const ACTIVE_PROJECT_URI_KEY = 'noveltools.activeProjectUri';
+let extensionContext = null;
+const cacheByUri = new Map();
+let cacheWorkspaceRoot = null;
 function normalizePathForGrouping(scenePath) {
     return scenePath.replace(/\\/g, '/');
 }
@@ -86,7 +95,57 @@ function buildChapters(scenePaths, sceneUris, grouping) {
     }
     return [{ title: undefined, sceneUris, scenePaths }];
 }
+/** Called from extension activate to provide workspace state for active document. */
+function initSceneList(context) {
+    extensionContext = context;
+}
+function getWorkspaceKey() {
+    return vscode.workspace.workspaceFolders?.[0]?.uri.toString() ?? '';
+}
+async function getActiveProjectUri() {
+    if (!extensionContext)
+        return null;
+    const stored = extensionContext.workspaceState.get(ACTIVE_PROJECT_URI_KEY);
+    if (!stored)
+        return null;
+    try {
+        return vscode.Uri.parse(stored);
+    }
+    catch {
+        return null;
+    }
+}
+async function setActiveProjectUri(uri) {
+    if (!extensionContext)
+        return;
+    await extensionContext.workspaceState.update(ACTIVE_PROJECT_URI_KEY, uri.toString());
+}
+/** Find all index.yaml files matching the configured glob. */
+async function findAllIndexYaml() {
+    const glob = (0, config_1.getIndexYamlGlob)();
+    const found = await vscode.workspace.findFiles(glob);
+    return found.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
+}
+async function findIndexYaml() {
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders?.length)
+        return null;
+    for (const folder of folders) {
+        const candidate = vscode.Uri.joinPath(folder.uri, INDEX_YAML);
+        try {
+            await vscode.workspace.fs.readFile(candidate);
+            return candidate;
+        }
+        catch {
+            // continue
+        }
+    }
+    return null;
+}
 async function findProjectFile() {
+    const indexUri = await findIndexYaml();
+    if (indexUri)
+        return indexUri;
     const name = (0, config_1.getProjectFile)();
     const folders = vscode.workspace.workspaceFolders;
     if (!folders?.length)
@@ -114,10 +173,19 @@ async function findProjectFile() {
     }
     return null;
 }
+function isIndexYaml(uri) {
+    const base = path.basename(uri.fsPath);
+    return base === INDEX_YAML;
+}
 async function loadFromProjectFile(uri) {
     const bytes = await vscode.workspace.fs.readFile(uri);
     const content = new TextDecoder().decode(bytes);
-    const data = (0, projectYaml_1.parseProjectYaml)(content, uri);
+    let data = (0, projectYaml_1.parseLongformStrict)(content, uri) ??
+        (0, projectYaml_1.parseIndexYaml)(content, uri) ??
+        (0, projectYaml_1.parseLongformIndexYaml)(content, uri);
+    if (!data && !isIndexYaml(uri)) {
+        data = (0, projectYaml_1.parseProjectYaml)(content, uri);
+    }
     if (data) {
         return { data, flatUris: data.flatUris, projectFileUri: uri };
     }
@@ -159,23 +227,67 @@ async function loadFromConfig() {
     };
     return { data, flatUris: flattened, projectFileUri: null };
 }
-async function getManuscript() {
-    const root = vscode.workspace.workspaceFolders?.[0]?.uri.toString() ?? '';
-    if (cached?.workspaceRoot === root) {
-        return cached.result;
+function cacheKey(uri) {
+    return uri?.toString() ?? 'config';
+}
+/** Load manuscript for a specific project file URI (cached per URI). */
+async function getManuscriptByUri(uri) {
+    const root = getWorkspaceKey();
+    if (cacheWorkspaceRoot !== root) {
+        cacheByUri.clear();
+        cacheWorkspaceRoot = root;
     }
-    const projectUri = await findProjectFile();
-    const result = projectUri
-        ? await loadFromProjectFile(projectUri)
-        : await loadFromConfig();
-    cached = { result, workspaceRoot: root };
+    const key = cacheKey(uri);
+    const cached = cacheByUri.get(key);
+    if (cached)
+        return cached;
+    const result = await loadFromProjectFile(uri);
+    cacheByUri.set(key, result);
+    return result;
+}
+async function getManuscript(projectFileUri) {
+    const root = getWorkspaceKey();
+    if (cacheWorkspaceRoot !== root) {
+        cacheByUri.clear();
+        cacheWorkspaceRoot = root;
+    }
+    if (projectFileUri) {
+        return getManuscriptByUri(projectFileUri);
+    }
+    const allIndex = await findAllIndexYaml();
+    if (allIndex.length > 1) {
+        const activeUri = await getActiveProjectUri();
+        const uri = activeUri && allIndex.some((u) => u.toString() === activeUri.toString())
+            ? activeUri
+            : allIndex[0];
+        return getManuscriptByUri(uri);
+    }
+    if (allIndex.length === 1) {
+        return getManuscriptByUri(allIndex[0]);
+    }
+    const singleUri = await findProjectFile();
+    if (singleUri) {
+        return getManuscriptByUri(singleUri);
+    }
+    const configKey = 'config';
+    let result = cacheByUri.get(configKey);
+    if (!result) {
+        result = await loadFromConfig();
+        cacheByUri.set(configKey, result);
+    }
     return result;
 }
 /** Returns flat list of URIs for manuscript word count and navigation. */
 async function getManuscriptUris() {
     return getManuscript();
 }
-function clearManuscriptCache() {
-    cached = null;
+function clearManuscriptCache(uri) {
+    if (uri) {
+        cacheByUri.delete(cacheKey(uri));
+    }
+    else {
+        cacheByUri.clear();
+        cacheWorkspaceRoot = null;
+    }
 }
 //# sourceMappingURL=sceneList.js.map

@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getProjectFile = getProjectFile;
+exports.getIndexYamlGlob = getIndexYamlGlob;
 exports.getSceneFiles = getSceneFiles;
 exports.getSceneGlob = getSceneGlob;
 exports.getChapterGrouping = getChapterGrouping;
@@ -42,10 +43,14 @@ exports.getTypewriterSoundVolume = getTypewriterSoundVolume;
 exports.getTypewriterSoundPath = getTypewriterSoundPath;
 exports.getWordCountStripMarkdown = getWordCountStripMarkdown;
 exports.getWordCountManuscriptScope = getWordCountManuscriptScope;
+exports.getChapterContextPath = getChapterContextPath;
 const vscode = __importStar(require("vscode"));
 const SECTION = 'noveltools';
 function getProjectFile() {
     return vscode.workspace.getConfiguration(SECTION).get('projectFile') ?? 'noveltools.yaml';
+}
+function getIndexYamlGlob() {
+    return vscode.workspace.getConfiguration(SECTION).get('indexYamlGlob') ?? '**/*[iI]ndex*.{yaml,md}';
 }
 function getSceneFiles() {
     return vscode.workspace.getConfiguration(SECTION).get('sceneFiles') ?? [];
@@ -72,5 +77,8 @@ function getWordCountStripMarkdown() {
 function getWordCountManuscriptScope() {
     const scope = vscode.workspace.getConfiguration(SECTION).get('wordCount.manuscriptScope') ?? 'project';
     return scope === 'workspace' ? 'workspace' : 'project';
+}
+function getChapterContextPath() {
+    return vscode.workspace.getConfiguration(SECTION).get('chapterContextPath') ?? '.cursor/noveltools-chapter-context.md';
 }
 //# sourceMappingURL=config.js.map

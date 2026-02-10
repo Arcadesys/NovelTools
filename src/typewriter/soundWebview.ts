@@ -9,8 +9,11 @@ function getHtml(soundUri: vscode.Uri | null, volume: number): string {
   const vol = Math.max(0, Math.min(1, volume));
   return `<!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"></head>
+<head><meta charset="UTF-8">
+<style>body{font-family:var(--vscode-font-family);font-size:12px;color:var(--vscode-foreground);margin:12px;}</style>
+</head>
 <body>
+<p>Typewriter sound is active. This panel runs in the background; you can close it or leave it open.</p>
 <audio id="click" ${soundSrc} preload="auto"></audio>
 <script>
 (function() {
@@ -78,6 +81,5 @@ export function playTypewriterSound(
   options: { volume: number; soundWebviewUri: vscode.Uri | null }
 ): void {
   const p = ensureSoundWebview(context, options);
-  p.reveal(vscode.ViewColumn.One, true);
   p.webview.postMessage({ type: 'play' });
 }

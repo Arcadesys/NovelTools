@@ -6,8 +6,10 @@ import { registerMoveScene } from './sceneStitching/moveScene';
 import { registerStitchedProvider } from './sceneStitching/stitchedProvider';
 import { registerManuscriptView } from './sceneStitching/manuscriptView';
 import { registerTypewriterSound } from './typewriter/soundController';
+import { initSceneList } from './sceneStitching/sceneList';
 
 export function activate(context: vscode.ExtensionContext): void {
+  initSceneList(context);
   registerWordCount(context);
   registerNavigation(context);
   registerMoveChapter(context);

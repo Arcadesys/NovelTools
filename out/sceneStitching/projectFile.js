@@ -35,10 +35,34 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.writeProjectYaml = writeProjectYaml;
 exports.buildProjectYamlToFile = buildProjectYamlToFile;
+const path = __importStar(require("path"));
 const vscode = __importStar(require("vscode"));
 const projectYaml_1 = require("./projectYaml");
+function isIndexYaml(uri) {
+    return path.basename(uri.fsPath) === 'index.yaml';
+}
 async function writeProjectYaml(uri, data) {
-    const yaml = (0, projectYaml_1.serializeToYaml)(data);
+    const baseDir = vscode.Uri.joinPath(uri, '..');
+    let yaml;
+    if (data.longformMeta) {
+        yaml = (0, projectYaml_1.serializeToLongformYaml)(data);
+    }
+    else if (isIndexYaml(uri)) {
+        yaml = (0, projectYaml_1.serializeToIndexYaml)({
+            ...data,
+            chapters: [
+                {
+                    title: undefined,
+                    sceneUris: data.flatUris,
+                    scenePaths: (0, projectYaml_1.scenePathsRelativeTo)(baseDir, data.flatUris),
+                },
+            ],
+            projectFileUri: uri,
+        });
+    }
+    else {
+        yaml = (0, projectYaml_1.serializeToYaml)(data);
+    }
     const doc = await vscode.workspace.openTextDocument(uri);
     const edit = new vscode.WorkspaceEdit();
     const fullRange = new vscode.Range(0, 0, doc.lineCount, 0);
@@ -49,6 +73,24 @@ async function writeProjectYaml(uri, data) {
 /** Create or overwrite project YAML at targetUri with data; scene paths are written relative to the file's directory. */
 async function buildProjectYamlToFile(targetUri, data) {
     const baseDir = vscode.Uri.joinPath(targetUri, '..');
+    if (data.longformMeta) {
+        const yaml = (0, projectYaml_1.serializeToLongformYaml)(data);
+        await vscode.workspace.fs.writeFile(targetUri, Buffer.from(yaml, 'utf8'));
+        return;
+    }
+    if (isIndexYaml(targetUri)) {
+        const scenePaths = (0, projectYaml_1.scenePathsRelativeTo)(baseDir, data.flatUris);
+        const dataForWrite = {
+            ...data,
+            chapters: [
+                { title: undefined, sceneUris: data.flatUris, scenePaths },
+            ],
+            projectFileUri: targetUri,
+        };
+        const yaml = (0, projectYaml_1.serializeToIndexYaml)(dataForWrite);
+        await vscode.workspace.fs.writeFile(targetUri, Buffer.from(yaml, 'utf8'));
+        return;
+    }
     const chapters = data.chapters.map((ch) => ({
         ...ch,
         scenePaths: (0, projectYaml_1.scenePathsRelativeTo)(baseDir, ch.sceneUris),

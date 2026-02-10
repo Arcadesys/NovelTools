@@ -9,7 +9,9 @@ const moveScene_1 = require("./sceneStitching/moveScene");
 const stitchedProvider_1 = require("./sceneStitching/stitchedProvider");
 const manuscriptView_1 = require("./sceneStitching/manuscriptView");
 const soundController_1 = require("./typewriter/soundController");
+const sceneList_1 = require("./sceneStitching/sceneList");
 function activate(context) {
+    (0, sceneList_1.initSceneList)(context);
     (0, statusBar_1.registerWordCount)(context);
     (0, navigation_1.registerNavigation)(context);
     (0, moveChapter_1.registerMoveChapter)(context);
