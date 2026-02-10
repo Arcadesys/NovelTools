@@ -6,6 +6,10 @@ export function getProjectFile(): string {
   return vscode.workspace.getConfiguration(SECTION).get<string>('projectFile') ?? 'noveltools.yaml';
 }
 
+export function getIndexYamlGlob(): string {
+  return vscode.workspace.getConfiguration(SECTION).get<string>('indexYamlGlob') ?? '**/*[iI]ndex*.{yaml,md}';
+}
+
 export function getSceneFiles(): string[] {
   return vscode.workspace.getConfiguration(SECTION).get<string[]>('sceneFiles') ?? [];
 }
@@ -38,4 +42,8 @@ export function getWordCountStripMarkdown(): boolean {
 export function getWordCountManuscriptScope(): 'project' | 'workspace' {
   const scope = vscode.workspace.getConfiguration(SECTION).get<string>('wordCount.manuscriptScope') ?? 'project';
   return scope === 'workspace' ? 'workspace' : 'project';
+}
+
+export function getChapterContextPath(): string {
+  return vscode.workspace.getConfiguration(SECTION).get<string>('chapterContextPath') ?? '.cursor/noveltools-chapter-context.md';
 }

@@ -38,6 +38,11 @@
           "enum": ["flat", "folder"],
           "description": "When building from files (no project YAML), group scenes into chapters by folder or keep a single flat chapter."
         },
+        "noveltools.indexYamlGlob": {
+          "type": "string",
+          "default": "**/*[iI]ndex*.{yaml,md}",
+          "description": "Glob to discover index/manuscript files (Longform and NovelTools). Matches index.yaml, Index.md, etc. Use archive/**/*[iI]ndex*.{yaml,md} to restrict to a folder."
+        },
         "noveltools.typewriterSound.enabled": {
           "type": "boolean",
           "default": true,
@@ -65,6 +70,11 @@
           "default": "project",
           "enum": ["project", "workspace"],
           "description": "Use project YAML scene list; or 'workspace' to count all .md in workspace."
+        },
+        "noveltools.chapterContextPath": {
+          "type": "string",
+          "default": ".cursor/noveltools-chapter-context.md",
+          "description": "Path (relative to workspace root) where \"Set Chapter as Context\" writes the stitched chapter for agent review. Create a Cursor rule or @-mention this file in chat."
         }
       }
     },
@@ -75,16 +85,27 @@
       { "command": "noveltools.nextChapter", "title": "NovelTools: Next Chapter" },
       { "command": "noveltools.previousChapter", "title": "NovelTools: Previous Chapter" },
       { "command": "noveltools.goToChapter", "title": "NovelTools: Go to Chapter…" },
-      { "command": "noveltools.moveChapterUp", "title": "NovelTools: Move Chapter Up" },
-      { "command": "noveltools.moveChapterDown", "title": "NovelTools: Move Chapter Down" },
-      { "command": "noveltools.moveSceneUp", "title": "NovelTools: Move Scene Up" },
-      { "command": "noveltools.moveSceneDown", "title": "NovelTools: Move Scene Down" },
+      { "command": "noveltools.moveChapterUp", "title": "NovelTools: Move Chapter Up", "icon": "$(arrow-up)" },
+      { "command": "noveltools.moveChapterDown", "title": "NovelTools: Move Chapter Down", "icon": "$(arrow-down)" },
+      { "command": "noveltools.renameChapter", "title": "NovelTools: Rename Chapter…" },
+      { "command": "noveltools.moveSceneUp", "title": "NovelTools: Move Scene Up", "icon": "$(arrow-up)" },
+      { "command": "noveltools.moveSceneDown", "title": "NovelTools: Move Scene Down", "icon": "$(arrow-down)" },
+      { "command": "noveltools.removeScene", "title": "NovelTools: Remove Scene from Manuscript", "icon": "$(trash)" },
+      { "command": "noveltools.removeChapter", "title": "NovelTools: Remove Chapter from Manuscript", "icon": "$(trash)" },
+      { "command": "noveltools.setSectionStatus", "title": "NovelTools: Set section status…" },
+      { "command": "noveltools.setSectionStatusDone", "title": "Set status: Done (complete)", "icon": "$(pass-filled)" },
+      { "command": "noveltools.setSectionStatusDrafted", "title": "Set status: Drafted", "icon": "$(pencil)" },
+      { "command": "noveltools.setSectionStatusSpiked", "title": "Set status: Spiked out", "icon": "$(circle-slash)" },
+      { "command": "noveltools.clearSectionStatus", "title": "Clear section status", "icon": "$(clear)" },
       { "command": "noveltools.openStitchedManuscript", "title": "NovelTools: Open Stitched Manuscript", "icon": "$(book)" },
+      { "command": "noveltools.openStitchedChapter", "title": "NovelTools: Open Stitched Chapter" },
+      { "command": "noveltools.setChapterAsContext", "title": "NovelTools: Set Chapter as Context" },
       { "command": "noveltools.refreshManuscript", "title": "NovelTools: Refresh Manuscript View", "icon": "$(refresh)" },
       { "command": "noveltools.buildProjectYaml", "title": "NovelTools: Build Project YAML", "icon": "$(new-file)" },
       { "command": "noveltools.openProjectYaml", "title": "NovelTools: Open Project YAML", "icon": "$(go-to-file)" },
       { "command": "noveltools.openSettings", "title": "NovelTools: Open Settings", "icon": "$(settings-gear)" },
-      { "command": "noveltools.showQuickStart", "title": "NovelTools: Quick Start", "icon": "$(question)" }
+      { "command": "noveltools.showQuickStart", "title": "NovelTools: Quick Start", "icon": "$(question)" },
+      { "command": "noveltools.selectDocument", "title": "NovelTools: Select Document", "icon": "$(file-directory)" }
     ],
     "viewsContainers": {
       "activitybar": [
@@ -106,11 +127,16 @@
     "viewsWelcome": [
       {
         "view": "noveltools.manuscript",
-        "contents": "# Welcome to NovelTools\n\nGet started quickly:\n\n- [Build Project YAML](command:noveltools.buildProjectYaml)\n- [Open Project YAML](command:noveltools.openProjectYaml)\n- [Open Stitched Manuscript](command:noveltools.openStitchedManuscript)\n\nHow it works:\n\n- The Manuscript view mirrors `noveltools.yaml`.\n- Drag chapters/scenes to reorder; the YAML updates automatically.\n- Use the toolbar buttons above for common actions.\n\n[Quick Start Guide](command:noveltools.showQuickStart) | [Settings](command:noveltools.openSettings)"
+        "contents": "# Welcome to NovelTools\n\nGet started quickly:\n\n- [Build Project YAML](command:noveltools.buildProjectYaml)\n- [Open Project YAML](command:noveltools.openProjectYaml)\n- [Open Stitched Manuscript](command:noveltools.openStitchedManuscript)\n\nHow it works:\n\n- The Manuscript view mirrors `noveltools.yaml` or `index.yaml`.\n- With multiple index.yaml files, select a document in the tree to switch manuscripts.\n- Drag chapters/scenes to reorder; the YAML updates automatically.\n- Use the toolbar buttons above for common actions.\n\n[Quick Start Guide](command:noveltools.showQuickStart) | [Settings](command:noveltools.openSettings)"
       }
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "noveltools.selectDocument",
+          "when": "view == noveltools.manuscript && noveltools.hasMultipleDocuments",
+          "group": "navigation@1"
+        },
         {
           "command": "noveltools.showQuickStart",
           "when": "view == noveltools.manuscript",
@@ -149,13 +175,58 @@
           "group": "navigation"
         },
         {
+          "command": "noveltools.renameChapter",
+          "when": "view == noveltools.manuscript && viewItem == chapter",
+          "group": "navigation"
+        },
+        {
+          "command": "noveltools.openStitchedChapter",
+          "when": "view == noveltools.manuscript && viewItem == chapter",
+          "group": "navigation"
+        },
+        {
+          "command": "noveltools.setChapterAsContext",
+          "when": "view == noveltools.manuscript && viewItem == chapter",
+          "group": "navigation"
+        },
+        {
+          "command": "noveltools.setSectionStatusDone",
+          "when": "view == noveltools.manuscript && viewItem == scene",
+          "group": "status@0"
+        },
+        {
+          "command": "noveltools.setSectionStatusDrafted",
+          "when": "view == noveltools.manuscript && viewItem == scene",
+          "group": "status@0"
+        },
+        {
+          "command": "noveltools.setSectionStatusSpiked",
+          "when": "view == noveltools.manuscript && viewItem == scene",
+          "group": "status@0"
+        },
+        {
+          "command": "noveltools.clearSectionStatus",
+          "when": "view == noveltools.manuscript && viewItem == scene",
+          "group": "status@0"
+        },
+        {
           "command": "noveltools.moveSceneUp",
           "when": "view == noveltools.manuscript && viewItem == scene",
-          "group": "navigation"
+          "group": "navigation@1"
         },
         {
           "command": "noveltools.moveSceneDown",
           "when": "view == noveltools.manuscript && viewItem == scene",
+          "group": "navigation@1"
+        },
+        {
+          "command": "noveltools.removeScene",
+          "when": "view == noveltools.manuscript && viewItem == scene",
+          "group": "navigation@1"
+        },
+        {
+          "command": "noveltools.removeChapter",
+          "when": "view == noveltools.manuscript && viewItem == chapter",
           "group": "navigation"
         }
       ]
