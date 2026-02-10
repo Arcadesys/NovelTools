@@ -33,7 +33,7 @@ export async function writeProjectYaml(uri: vscode.Uri, data: ManuscriptData): P
       projectFileUri: uri,
     });
   } else {
-    yaml = serializeToYaml(data);
+    yaml = serializeToYaml(data, baseDir);
   }
   const doc = await vscode.workspace.openTextDocument(uri);
   const edit = new vscode.WorkspaceEdit();
@@ -69,6 +69,6 @@ export async function buildProjectYamlToFile(targetUri: vscode.Uri, data: Manusc
     scenePaths: scenePathsRelativeTo(baseDir, ch.sceneUris),
   }));
   const dataForWrite: ManuscriptData = { ...data, chapters, projectFileUri: targetUri };
-  const yaml = serializeToYaml(dataForWrite);
+  const yaml = serializeToYaml(dataForWrite, baseDir);
   await vscode.workspace.fs.writeFile(targetUri, Buffer.from(yaml, 'utf8'));
 }

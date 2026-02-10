@@ -68,6 +68,7 @@ function groupScenesByFolder(scenePaths, sceneUris) {
                 title: dir === '.' ? 'Root' : path.posix.basename(dir),
                 sceneUris: [],
                 scenePaths: [],
+                folderPath: key || undefined,
             };
             chaptersByKey.set(key, chapter);
             order.push(key);
@@ -211,16 +212,20 @@ async function loadFromProjectFile(uri) {
     const strict = (0, projectYaml_1.parseLongformStrict)(content, uri);
     const index = (0, projectYaml_1.parseIndexYaml)(content, uri);
     const longform = (0, projectYaml_1.parseLongformIndexYaml)(content, uri);
-    let data = strict ?? index ?? longform;
-    if (!data && !isIndexYaml(uri)) {
-        data = (0, projectYaml_1.parseProjectYaml)(content, uri);
-    }
+    // Prefer project YAML format for non-index files (e.g. noveltools.yaml) so index parser
+    // doesn't mis-parse { title, chapters } as a single empty chapter.
+    const projectYamlData = !isIndexYaml(uri) ? (0, projectYaml_1.parseProjectYaml)(content, uri) : null;
+    let data = projectYamlData ?? strict ?? index ?? longform;
+    const usedProjectYaml = !!projectYamlData && data === projectYamlData;
     if (data?.chapters.some((ch) => ch.folderPath)) {
         const baseDir = vscode.Uri.joinPath(uri, '..');
         data = await (0, projectYaml_1.resolveChapterFolders)(data, baseDir);
     }
     const relativePath = vscode.workspace.asRelativePath(uri);
-    fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'sceneList.ts:loadFromProjectFile', message: 'Parse result', data: { uri: relativePath, contentLen: content.length, strictOk: !!strict, indexOk: !!index, longformOk: !!longform, dataOk: !!data }, timestamp: Date.now(), hypothesisId: 'H2' }) }).catch(() => { });
+    const whichParser = usedProjectYaml ? 'projectYaml' : strict ? 'strict' : index ? 'index' : longform ? 'longform' : 'none';
+    // #region agent log
+    fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'sceneList.ts:loadFromProjectFile', message: 'Parse result', data: { uri: relativePath, contentLen: content.length, strictOk: !!strict, indexOk: !!index, longformOk: !!longform, dataOk: !!data, whichParser, chaptersCount: data?.chapters?.length ?? 0, sceneCounts: data?.chapters?.map(c => c.sceneUris?.length ?? 0) }, timestamp: Date.now(), hypothesisId: 'H2' }) }).catch(() => { });
+    // #endregion
     if (data) {
         return { data, flatUris: data.flatUris, projectFileUri: uri };
     }
@@ -291,6 +296,9 @@ async function getManuscript(projectFileUri) {
         return getManuscriptByUri(projectFileUri);
     }
     const allIndex = await findAllIndexYaml();
+    // #region agent log
+    fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'sceneList.ts:getManuscript', message: 'Resolution branch', data: { allIndexCount: allIndex.length, allIndexPaths: allIndex.map(u => vscode.workspace.asRelativePath(u)) }, timestamp: Date.now(), hypothesisId: 'H1' }) }).catch(() => { });
+    // #endregion
     if (allIndex.length > 1) {
         const activeUri = await getActiveProjectUri();
         const uri = activeUri && allIndex.some((u) => u.toString() === activeUri.toString())
@@ -302,6 +310,9 @@ async function getManuscript(projectFileUri) {
         return getManuscriptByUri(allIndex[0]);
     }
     const singleUri = await findProjectFile();
+    // #region agent log
+    fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'sceneList.ts:getManuscript', message: 'findProjectFile result', data: { usedProjectFile: !!singleUri, projectFileRelative: singleUri ? vscode.workspace.asRelativePath(singleUri) : null }, timestamp: Date.now(), hypothesisId: 'H2' }) }).catch(() => { });
+    // #endregion
     if (singleUri) {
         return getManuscriptByUri(singleUri);
     }
@@ -311,6 +322,9 @@ async function getManuscript(projectFileUri) {
         result = await loadFromConfig();
         cacheByUri.set(configKey, result);
     }
+    // #region agent log
+    fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'sceneList.ts:getManuscript', message: 'Final result', data: { source: allIndex.length >= 1 ? 'index' : 'config', projectFileRelative: result.projectFileUri ? vscode.workspace.asRelativePath(result.projectFileUri) : null, chaptersCount: result.data?.chapters?.length ?? 0, sceneCounts: result.data?.chapters?.map(c => c.sceneUris?.length ?? 0) }, timestamp: Date.now(), hypothesisId: 'H5' }) }).catch(() => { });
+    // #endregion
     return result;
 }
 /** Returns flat list of URIs for manuscript word count and navigation. */

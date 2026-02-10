@@ -5,14 +5,10 @@
   "description": "Long-form writing: scene stitching, manuscript sidebar, typewriter sounds, word counts",
   "version": "0.1.2",
   "engines": {
-    "vscode": "^1.74.0"
+    "vscode": "^1.75.0"
   },
   "categories": [
     "Other"
-  ],
-  "activationEvents": [
-    "onLanguage:markdown",
-    "onView:noveltools.manuscript"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -137,6 +133,16 @@
         "command": "noveltools.moveSceneDown",
         "title": "NovelTools: Move Scene Down",
         "icon": "$(arrow-down)"
+      },
+      {
+        "command": "noveltools.addSceneAbove",
+        "title": "NovelTools: Add Scene Above",
+        "icon": "$(add)"
+      },
+      {
+        "command": "noveltools.addSceneBelow",
+        "title": "NovelTools: Add Scene Below",
+        "icon": "$(add)"
       },
       {
         "command": "noveltools.removeScene",
@@ -327,6 +333,16 @@
           "command": "noveltools.clearSectionStatus",
           "when": "view == noveltools.manuscript && viewItem == scene",
           "group": "status@0"
+        },
+        {
+          "command": "noveltools.addSceneAbove",
+          "when": "view == noveltools.manuscript && viewItem == scene",
+          "group": "inline@0"
+        },
+        {
+          "command": "noveltools.addSceneBelow",
+          "when": "view == noveltools.manuscript && viewItem == scene",
+          "group": "inline@0"
         },
         {
           "command": "noveltools.moveSceneUp",

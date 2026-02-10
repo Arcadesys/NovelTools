@@ -195,8 +195,26 @@ function registerManuscriptView(context) {
     context.subscriptions.push(vscode.commands.registerCommand('noveltools.showQuickStart', async () => {
         await openQuickStart(context);
     }));
-    context.subscriptions.push(vscode.commands.registerCommand('noveltools.renameChapter', async () => {
-        const selection = treeView.selection[0];
+    context.subscriptions.push(vscode.commands.registerCommand('noveltools.renameChapter', async (nodeOrItem) => {
+        let selection = (nodeOrItem ?? treeView.selection[0]);
+        if (selection?.type !== 'chapter') {
+            const item = nodeOrItem ?? treeView.selection[0];
+            const label = item && typeof item === 'object' && 'label' in item ? item.label : undefined;
+            if (label !== undefined && item && typeof item === 'object' && item.contextValue === 'chapter') {
+                const result = await (0, sceneList_1.getManuscript)();
+                if (result.data?.projectFileUri) {
+                    const chapterIndex = result.data.chapters.findIndex((ch, i) => (ch.title ?? `Chapter ${i + 1}`) === label);
+                    if (chapterIndex >= 0) {
+                        selection = {
+                            type: 'chapter',
+                            chapterIndex,
+                            label: String(label),
+                            data: result.data,
+                        };
+                    }
+                }
+            }
+        }
         if (selection?.type !== 'chapter') {
             await vscode.window.showInformationMessage('Select a chapter in the Manuscript view to rename it.');
             return;
@@ -467,6 +485,11 @@ class ManuscriptTreeDataProvider {
         }
         const result = await (0, sceneList_1.getManuscript)();
         await updateViewContext(result);
+        // #region agent log
+        if (!element && result.data) {
+            fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'manuscriptView.ts:getChildren(root)', message: 'Tree root data', data: { projectFileRelative: result.projectFileUri ? vscode.workspace.asRelativePath(result.projectFileUri) : null, chaptersCount: result.data.chapters.length, sceneCounts: result.data.chapters.map(c => c.sceneUris.length) }, timestamp: Date.now(), hypothesisId: 'H4' }) }).catch(() => { });
+        }
+        // #endregion
         if (!result.data && !element) {
             return [];
         }

@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import YAML from 'yaml';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 /** Returns scene paths relative to baseDir for serialization (forward slashes for portability). */
 export function scenePathsRelativeTo(baseDir: vscode.Uri, sceneUris: vscode.Uri[]): string[] {
@@ -26,7 +26,7 @@ export interface ManuscriptData {
   chapters: ChapterData[];
   flatUris: vscode.Uri[];
   projectFileUri: vscode.Uri | null;
-  /** Per-scene status: key = relative path (forward slashes), value = done | drafted | spiked. */
+  /** Per-section status (red/yellow/green): key = relative path (forward slashes), value = done | drafted | spiked. Stored in project YAML. */
   sceneStatus?: Record<string, SceneStatus>;
   /** When set, this project is Longform format; use for round-trip serialization. */
   longformMeta?: {
@@ -37,7 +37,7 @@ export interface ManuscriptData {
   };
 }
 
-/** Chapter in YAML: string = folder path, or object with folder and optional title, or legacy { title, scenes }. */
+/** Chapter in YAML: always a folder. string = folder path, or object with folder and optional title. Legacy { scenes } is still read and migrated to folder when all scenes share one directory. */
 type RawChapter =
   | string
   | { title?: string; scenes?: string[]; folder?: string };
@@ -45,6 +45,7 @@ type RawChapter =
 interface RawManuscript {
   title?: string;
   chapters: RawChapter[];
+  /** Section status (red/yellow/green): done | drafted | spiked per relative path. */
   sceneStatus?: Record<string, string>;
 }
 
@@ -64,7 +65,7 @@ export function parseIndexYaml(
     let body = content;
     let sceneStatus: ManuscriptData['sceneStatus'];
     if (match) {
-      const frontmatter = YAML.parse(match[1]) as { title?: string; sceneStatus?: Record<string, string> } | null;
+      const frontmatter = parseYaml(match[1]) as { title?: string; sceneStatus?: Record<string, string> } | null;
       title = frontmatter?.title != null ? String(frontmatter.title) : undefined;
       const raw = frontmatter?.sceneStatus;
       if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
@@ -76,7 +77,7 @@ export function parseIndexYaml(
       }
       body = match[2].trim();
     }
-    const scenePathsRaw = body ? (YAML.parse(body) as unknown) : [];
+    const scenePathsRaw = body ? (parseYaml(body) as unknown) : [];
     const scenePaths = Array.isArray(scenePathsRaw)
       ? scenePathsRaw.map((p) => (typeof p === 'string' ? p : String(p)))
       : [];
@@ -142,11 +143,11 @@ export function parseLongformStrict(
     let raw: Record<string, unknown> | null;
     const match = content.match(INDEX_FRONTMATTER_REGEX);
     if (match) {
-      raw = YAML.parse(match[1]) as Record<string, unknown> | null;
+      raw = parseYaml(match[1]) as Record<string, unknown> | null;
     } else {
       // #region agent log
       fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'projectYaml.ts:parseLongformStrict',message:'Frontmatter regex did not match',data:{contentStarts:content.slice(0,80)},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-      raw = YAML.parse(content) as Record<string, unknown> | null;
+      raw = parseYaml(content) as Record<string, unknown> | null;
       // #endregion
     }
     if (!raw || typeof raw !== 'object') {
@@ -259,9 +260,9 @@ export function parseLongformIndexYaml(
     let raw: Record<string, unknown> | null;
     const match = content.match(INDEX_FRONTMATTER_REGEX);
     if (match) {
-      raw = YAML.parse(match[1]) as Record<string, unknown> | null;
+      raw = parseYaml(match[1]) as Record<string, unknown> | null;
     } else {
-      raw = YAML.parse(content) as Record<string, unknown> | null;
+      raw = parseYaml(content) as Record<string, unknown> | null;
     }
     if (!raw || typeof raw !== 'object') return null;
 
@@ -355,7 +356,9 @@ function normalizeRawChapter(ch: RawChapter): { title?: string; scenes?: string[
   }
   const obj = ch as { title?: string; scenes?: string[]; folder?: string };
   if (obj.folder != null && String(obj.folder).trim() !== '') {
-    return { title: obj.title, folder: String(obj.folder).trim() };
+    const folder = String(obj.folder).trim();
+    const scenes = Array.isArray(obj.scenes) ? obj.scenes.map((p) => (typeof p === 'string' ? p : String(p))) : undefined;
+    return { title: obj.title, folder, scenes };
   }
   return {
     title: obj.title,
@@ -368,7 +371,7 @@ export function parseProjectYaml(
   projectFileUri: vscode.Uri
 ): ManuscriptData | null {
   try {
-    const raw = YAML.parse(content) as RawManuscript | null;
+    const raw = parseYaml(content) as RawManuscript | null;
     if (!raw || !Array.isArray(raw.chapters)) return null;
     const baseDir = vscode.Uri.joinPath(projectFileUri, '..');
     const chapters: ChapterData[] = [];
@@ -376,23 +379,57 @@ export function parseProjectYaml(
     for (const rawCh of raw.chapters) {
       const ch = normalizeRawChapter(rawCh);
       if (ch.folder !== undefined) {
-        const folderPath = ch.folder;
-        const folderName = path.basename(folderPath.replace(/\/$/, '')) || folderPath;
-        chapters.push({
-          title: ch.title ?? folderName,
-          sceneUris: [],
-          scenePaths: [],
-          folderPath,
-        });
-        // flatUris filled by resolveChapterFolders
+        let folderPath = ch.folder.replace(/\/$/, '').split(path.sep).join('/');
+        if (folderPath.toLowerCase().endsWith('.md')) folderPath = path.dirname(folderPath).split(path.sep).join('/');
+        const folderName = path.basename(folderPath) || folderPath;
+        const hasCustomScenes = Array.isArray(ch.scenes) && ch.scenes.length > 0;
+        if (hasCustomScenes) {
+          const scenePaths = ch.scenes!.map((s) => {
+            const str = typeof s === 'string' ? s : String(s);
+            if (str.includes('/') || str.includes(path.sep)) return str.split(path.sep).join('/');
+            return folderPath + '/' + str;
+          });
+          const sceneUris = scenePaths.map((p) => vscode.Uri.joinPath(baseDir, p));
+          chapters.push({
+            title: ch.title ?? folderName,
+            sceneUris,
+            scenePaths,
+            folderPath,
+          });
+          flatUris.push(...sceneUris);
+        } else {
+          chapters.push({
+            title: ch.title ?? folderName,
+            sceneUris: [],
+            scenePaths: [],
+            folderPath,
+          });
+          // flatUris filled by resolveChapterFolders
+        }
       } else {
         const scenePaths = ch.scenes ?? [];
         const sceneUris = scenePaths.map((p) => {
           const pathStr = typeof p === 'string' ? p : String(p);
           return vscode.Uri.joinPath(baseDir, pathStr);
         });
-        chapters.push({ title: ch.title, sceneUris, scenePaths });
-        flatUris.push(...sceneUris);
+        // Migrate to folder shape when all scenes share one directory so we always write folder on save
+        const relDirs = scenePaths.map((p) => path.dirname(typeof p === 'string' ? p : String(p)));
+        const firstDir = relDirs[0];
+        const allSameDir = firstDir !== undefined && relDirs.every((d) => d === firstDir);
+        if (allSameDir && scenePaths.length > 0) {
+          const folderPath = firstDir.split(path.sep).join('/');
+          const folderName = path.basename(folderPath.replace(/\/$/, '')) || folderPath;
+          chapters.push({
+            title: ch.title ?? folderName,
+            sceneUris,
+            scenePaths,
+            folderPath,
+          });
+          flatUris.push(...sceneUris);
+        } else {
+          chapters.push({ title: ch.title, sceneUris, scenePaths });
+          flatUris.push(...sceneUris);
+        }
       }
     }
     let sceneStatus: ManuscriptData['sceneStatus'];
@@ -404,16 +441,55 @@ export function parseProjectYaml(
       }
       if (Object.keys(sceneStatus).length === 0) sceneStatus = undefined;
     }
+    const mergedChapters = mergeConsecutiveChaptersByFolder(chapters);
+    const mergedFlatUris = mergedChapters.flatMap((ch) => ch.sceneUris);
     return {
       title: raw.title,
-      chapters,
-      flatUris,
+      chapters: mergedChapters,
+      flatUris: mergedFlatUris,
       projectFileUri,
       sceneStatus,
     };
   } catch {
     return null;
   }
+}
+
+/**
+ * Merge consecutive chapters that share the same folder into one chapter (preserves scene order).
+ * Use when YAML has multiple "scenes" blocks per folder (e.g. one for title scene, one for the rest).
+ */
+function mergeConsecutiveChaptersByFolder(chapters: ChapterData[]): ChapterData[] {
+  if (chapters.length <= 1) return chapters;
+  const result: ChapterData[] = [];
+  let i = 0;
+  while (i < chapters.length) {
+    const ch = chapters[i];
+    const folder = ch.folderPath ?? (ch.scenePaths[0] ? path.dirname(ch.scenePaths[0]).split(path.sep).join('/') : undefined);
+    if (!folder || ch.sceneUris.length === 0) {
+      result.push(ch);
+      i++;
+      continue;
+    }
+    const merged: ChapterData = {
+      title: ch.title,
+      sceneUris: [...ch.sceneUris],
+      scenePaths: [...ch.scenePaths],
+      folderPath: folder,
+    };
+    i++;
+    while (i < chapters.length) {
+      const next = chapters[i];
+      const nextFolder = next.folderPath ?? (next.scenePaths[0] ? path.dirname(next.scenePaths[0]).split(path.sep).join('/') : undefined);
+      if (nextFolder !== folder || next.sceneUris.length === 0) break;
+      merged.sceneUris.push(...next.sceneUris);
+      merged.scenePaths.push(...next.scenePaths);
+      if (merged.title == null && next.title != null) merged.title = next.title;
+      i++;
+    }
+    result.push(merged);
+  }
+  return result;
 }
 
 /** Resolve folder chapters by reading .md files from each chapter folder. Call after parseProjectYaml when chapters use folder. */
@@ -429,6 +505,11 @@ export async function resolveChapterFolders(
 
   for (const ch of data.chapters) {
     if (!ch.folderPath) {
+      chapters.push(ch);
+      flatUris.push(...ch.sceneUris);
+      continue;
+    }
+    if (ch.scenePaths.length > 0) {
       chapters.push(ch);
       flatUris.push(...ch.sceneUris);
       continue;
@@ -463,22 +544,50 @@ export async function resolveChapterFolders(
   return { ...data, chapters, flatUris };
 }
 
-export function serializeToYaml(data: ManuscriptData): string {
+/**
+ * Prefer folder-based chapters when serializing: if a chapter has no folderPath but all its
+ * scenes share one directory relative to baseDir, set folderPath so we write folders not scene lists.
+ */
+export function dataWithFolderChapters(data: ManuscriptData, baseDir: vscode.Uri): ManuscriptData {
+  const base = baseDir.fsPath;
+  const chapters: ChapterData[] = data.chapters.map((ch) => {
+    if (ch.folderPath || ch.sceneUris.length === 0) return ch;
+    const relDirs = ch.sceneUris.map((u) => path.dirname(path.relative(base, u.fsPath)));
+    const first = relDirs[0];
+    if (!first || relDirs.some((d) => d !== first)) return ch;
+    const folderPath = first.split(path.sep).join('/');
+    return { ...ch, folderPath };
+  });
+  return { ...data, chapters };
+}
+
+export function serializeToYaml(data: ManuscriptData, baseDir?: vscode.Uri): string {
+  const toSerialize = baseDir ? dataWithFolderChapters(data, baseDir) : data;
   const raw: RawManuscript = {
-    title: data.title,
-    chapters: data.chapters.map((ch) => {
+    title: toSerialize.title,
+    chapters: toSerialize.chapters.map((ch) => {
       if (ch.folderPath) {
-        return ch.title !== path.basename(ch.folderPath.replace(/\/$/, ''))
-          ? { title: ch.title, folder: ch.folderPath }
-          : { folder: ch.folderPath };
+        const folderPath = ch.folderPath.replace(/\/$/, '');
+        const base = folderPath + '/';
+        const scenesRelative = ch.scenePaths.length > 0
+          ? ch.scenePaths.map((p) => {
+              const normalized = p.split(path.sep).join('/');
+              return normalized.startsWith(base) ? normalized.slice(base.length) : normalized;
+            })
+          : undefined;
+        const title = ch.title !== path.basename(folderPath) ? ch.title : undefined;
+        if (scenesRelative && scenesRelative.length > 0) {
+          return title !== undefined ? { folder: ch.folderPath, title, scenes: scenesRelative } : { folder: ch.folderPath, scenes: scenesRelative };
+        }
+        return title !== undefined ? { title: ch.title, folder: ch.folderPath } : { folder: ch.folderPath };
       }
       return { title: ch.title, scenes: ch.scenePaths };
     }),
   };
-  if (data.sceneStatus && Object.keys(data.sceneStatus).length > 0) {
-    raw.sceneStatus = data.sceneStatus;
+  if (toSerialize.sceneStatus && Object.keys(toSerialize.sceneStatus).length > 0) {
+    raw.sceneStatus = toSerialize.sceneStatus;
   }
-  return YAML.stringify(raw, {
+  return stringifyYaml(raw, {
     lineWidth: 0,
     defaultStringType: 'QUOTE_DOUBLE',
   });
@@ -492,8 +601,8 @@ export function serializeToIndexYaml(data: ManuscriptData): string {
   if (data.sceneStatus && Object.keys(data.sceneStatus).length > 0) {
     front.sceneStatus = data.sceneStatus;
   }
-  const frontStr = YAML.stringify(front, opts).trim();
-  const body = YAML.stringify(scenePaths, opts).trim();
+  const frontStr = stringifyYaml(front, opts).trim();
+  const body = stringifyYaml(scenePaths, opts).trim();
   return `---\n${frontStr}\n---\n${body}\n`;
 }
 
@@ -528,7 +637,7 @@ export function serializeToLongformYaml(data: ManuscriptData): string {
     longform.sceneStatus = data.sceneStatus;
   }
   const opts = { lineWidth: 0, defaultStringType: 'QUOTE_DOUBLE' as const };
-  const front = YAML.stringify({ longform }, opts).trim();
+  const front = stringifyYaml({ longform }, opts).trim();
   return `---\n${front}\n---\n`;
 }
 
@@ -561,6 +670,28 @@ export function moveScene(
   toCh.scenePaths.splice(toSceneIdx, 0, path);
   toCh.sceneUris.splice(toSceneIdx, 0, uri);
   const flatUris = chapters.flatMap((ch) => ch.sceneUris);
+  return { ...data, chapters, flatUris };
+}
+
+/** Insert a new scene into a chapter at a given index. */
+export function insertScene(
+  data: ManuscriptData,
+  chapterIdx: number,
+  sceneIdx: number,
+  uri: vscode.Uri,
+  scenePath: string
+): ManuscriptData {
+  const chapters = data.chapters.map((ch) => ({
+    ...ch,
+    sceneUris: [...ch.sceneUris],
+    scenePaths: [...ch.scenePaths],
+  }));
+  const ch = chapters[chapterIdx];
+  if (!ch) return data;
+  const idx = Math.max(0, Math.min(sceneIdx, ch.sceneUris.length));
+  ch.sceneUris.splice(idx, 0, uri);
+  ch.scenePaths.splice(idx, 0, scenePath);
+  const flatUris = chapters.flatMap((c) => c.sceneUris);
   return { ...data, chapters, flatUris };
 }
 

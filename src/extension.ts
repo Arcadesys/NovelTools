@@ -3,6 +3,7 @@ import { registerWordCount } from './wordCount/statusBar';
 import { registerNavigation } from './sceneStitching/navigation';
 import { registerMoveChapter } from './sceneStitching/moveChapter';
 import { registerMoveScene } from './sceneStitching/moveScene';
+import { registerAddScene } from './sceneStitching/addScene';
 import { registerStitchedProvider } from './sceneStitching/stitchedProvider';
 import { registerManuscriptView } from './sceneStitching/manuscriptView';
 import { registerTypewriterSound } from './typewriter/soundController';
@@ -14,6 +15,7 @@ export function activate(context: vscode.ExtensionContext): void {
   registerNavigation(context);
   registerMoveChapter(context);
   registerMoveScene(context);
+  registerAddScene(context);
   registerStitchedProvider(context);
   registerManuscriptView(context);
   registerTypewriterSound(context);

@@ -10,6 +10,10 @@ A Cursor/VS Code extension for long-form writing: scene stitching, manuscript si
 - **Word counts**: Per-document word count and manuscript total in the status bar.
 - **Section status**: Mark each scene as done (🟢), drafted (🟡), or spiked out (🔴) from the Manuscript view context menu. Status is stored in the project YAML so you can see progress at a glance.
 
+## Troubleshooting
+
+**“Cannot register 'noveltools.sceneGlob'. This property is already registered.”** — The extension is loaded twice (e.g. you have NovelTools installed and are also running from source). Fix: in the main Cursor window open **Extensions** (Ctrl+Shift+X / Cmd+Shift+X), find **NovelTools**, and **Uninstall**. Then use only the Extension Development Host (F5) when developing from source.
+
 ## Project YAML format
 
 Create a `noveltools.yaml` (or set `noveltools.projectFile` to another path) in your workspace root:
@@ -17,16 +21,35 @@ Create a `noveltools.yaml` (or set `noveltools.projectFile` to another path) in 
 ```yaml
 title: My Novel
 chapters:
-  - title: Chapter 1
+  - folder: draft/chapter1
+  - folder: draft/chapter2
+    title: Chapter 2
+  - folder: AULD LANG LAPINE
     scenes:
-      - draft/ch1-scene1.md
-      - draft/ch1-scene2.md
-  - title: Chapter 2
-    scenes:
-      - draft/ch2.md
+      - Fenton waits for word on dads condition.md
+      - Daniel wakes from death.md
+      - Val introduces Lovejoy's next play.md
+  - "draft/chapter3"
 ```
 
-Paths are relative to the directory containing the project file. The Manuscript sidebar and all scene/chapter commands use this file. Drag-and-drop in the sidebar rewrites this YAML. Optional `sceneStatus` maps scene paths to `done`, `drafted`, or `spiked`; the Manuscript view shows 🟢/🟡/🔴 next to each scene.
+Paths are relative to the directory containing the project file. Each **chapter is a folder**. You can use a string (folder path) or an object with required `folder`, optional `title` (defaults to folder name), and optional **`scenes`** (custom order). When `scenes` is present, only those files are used, in that order; otherwise NovelTools discovers all `.md` files in the folder in **alphabetical order**. Scene entries are filenames (or paths relative to the folder). The Manuscript sidebar and all scene/chapter commands use this file; drag-and-drop rewrites the YAML and preserves custom scene order. Optional `sceneStatus` maps scene paths to `done`, `drafted`, or `spiked`; the Manuscript view shows 🟢/🟡/🔴 next to each scene.
+
+**Keeping the YAML shape in sync** — Use the JSON Schema so your editor can validate and offer completion:
+
+1. In your project YAML file (e.g. `noveltools.yaml`), add this as the first line:
+   ```yaml
+   # yaml-language-server: $schema=./schemas/noveltools-project.schema.json
+   ```
+   (If the schema lives elsewhere, adjust the path or use an absolute `file://` or URL.)
+
+2. Or in VS Code/Cursor workspace settings (`.vscode/settings.json`), associate the schema with your project filename:
+   ```json
+   "yaml.schemas": {
+     "./schemas/noveltools-project.schema.json": "noveltools.yaml"
+   }
+   ```
+
+The schema is in this repo at `schemas/noveltools-project.schema.json` and matches the folder-only chapter format the extension reads and writes. Editing via the Manuscript sidebar (drag-and-drop, rename chapter, etc.) keeps the file valid; if you edit by hand, the schema will flag invalid keys or types.
 
 **Alternatively: index.yaml** — NovelTools looks for `index.yaml` in the workspace root first. Use YAML frontmatter for the manuscript title, then a YAML array of scene paths in order:
 
@@ -84,8 +107,9 @@ Run **NovelTools: Set Chapter as Context** from the Manuscript view (right‑cli
 ### Option A: Run from source (development)
 
 1. Open the **NovelTools** folder in Cursor.
-2. Build: run **`npm run dev`** or **`npm run compile`** (compiles TypeScript to `out/`).
-3. Press **F5** or use **Run and Debug** → **Run Extension**. A new Cursor window opens with the extension loaded (Extension Development Host).
+2. **If you see “Cannot register 'noveltools.sceneGlob'. This property is already registered.”** — the extension is loaded twice (e.g. you have NovelTools installed and are also running from source). In the main Cursor window, open **Extensions**, find **NovelTools**, and **Uninstall**. Then use only the Extension Development Host (F5) when developing.
+3. Build: run **`npm run dev`** or **`npm run compile`** (compiles TypeScript to `out/`).
+4. Press **F5** or use **Run and Debug** → **Run Extension**. A new Cursor window opens with the extension loaded (Extension Development Host).
 
 ### Option B: Install as a packaged extension
 
