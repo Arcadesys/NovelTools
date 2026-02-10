@@ -3,7 +3,15 @@
   "publisher": "Austen Tucker",
   "displayName": "NovelTools",
   "description": "Long-form writing: scene stitching, manuscript sidebar, typewriter sounds, word counts",
-  "version": "0.1.2",
+  "version": "1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Arcadesys/NovelTools.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Arcadesys/NovelTools/issues"
+  },
+  "homepage": "https://github.com/Arcadesys/NovelTools#readme",
   "engines": {
     "vscode": "^1.75.0"
   },

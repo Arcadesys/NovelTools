@@ -118,11 +118,13 @@ Run **NovelTools: Set Chapter as Context** from the Manuscript view (right‑cli
    npm install
    npm run package
    ```
-   This compiles the extension and creates `noveltools-0.1.0.vsix` in the project root.
+   This compiles the extension and creates `noveltools-1.0.0.vsix` in the project root.
 
 2. Install the .vsix in Cursor:
    - **Command Palette** (Cmd+Shift+P / Ctrl+Shift+P) → **Extensions: Install from VSIX…**
-   - Choose `noveltools-0.1.0.vsix` from this project folder.
+   - Choose `noveltools-1.0.0.vsix` from this project folder.
+
+   **Or install from a GitHub release**: Download the `.vsix` from the [Releases](https://github.com/Arcadesys/NovelTools/releases) page, then use **Extensions: Install from VSIX…** as above.
    - Reload Cursor if prompted.
 
 The extension will then appear in your sidebar (NovelTools icon) and in the Extensions list. **Open a folder** (File → Open Folder) that contains your project — not just a single file — so NovelTools can discover your index files.
