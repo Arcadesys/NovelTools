@@ -339,6 +339,64 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('noveltools.deleteScene', async (nodeOrItem?: TreeNode | vscode.TreeItem) => {
+      let selection = (nodeOrItem ?? treeView.selection[0]) as TreeNode | undefined;
+      if (selection?.type !== 'scene') {
+        const item = nodeOrItem ?? treeView.selection[0];
+        const uri = item && typeof item === 'object' && 'resourceUri' in item ? (item as vscode.TreeItem).resourceUri : undefined;
+        if (uri && item && typeof item === 'object' && (item as vscode.TreeItem).contextValue === 'scene') {
+          const result = await getManuscript();
+          if (result.data?.projectFileUri) {
+            for (let ci = 0; ci < result.data.chapters.length; ci++) {
+              const si = result.data.chapters[ci].sceneUris.findIndex((u) => u.toString() === uri.toString());
+              if (si >= 0) {
+                selection = {
+                  type: 'scene',
+                  chapterIndex: ci,
+                  sceneIndex: si,
+                  uri,
+                  label: (item as vscode.TreeItem).label as string ?? path.basename(uri.fsPath),
+                  data: result.data,
+                };
+                break;
+              }
+            }
+          }
+        }
+      }
+      if (selection?.type !== 'scene') {
+        await vscode.window.showInformationMessage('Select a scene in the Manuscript view to delete.');
+        return;
+      }
+      const data = selection.data;
+      if (!data.projectFileUri) return;
+      const fileLabel = path.basename(selection.uri.fsPath);
+      const confirm = await vscode.window.showWarningMessage(
+        `Delete scene "${selection.label}"? It will be removed from the manuscript and the file "${fileLabel}" will be deleted from disk. This cannot be undone.`,
+        { modal: true },
+        'Delete'
+      );
+      if (confirm !== 'Delete') return;
+      const updated = removeSceneInData(data, selection.chapterIndex, selection.sceneIndex);
+      await writeProjectYaml(data.projectFileUri, updated);
+      clearManuscriptCache(data.projectFileUri);
+      try {
+        await vscode.workspace.fs.delete(selection.uri);
+      } catch (err) {
+        await vscode.window.showErrorMessage(
+          `Removed from manuscript, but could not delete file: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+      const doc = vscode.workspace.textDocuments.find((d) => d.uri.toString() === selection!.uri.toString());
+      if (doc) {
+        await vscode.window.showTextDocument(doc, { preserveFocus: false });
+        await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+      }
+      treeDataProvider.refresh();
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('noveltools.removeChapter', async (nodeOrItem?: TreeNode | vscode.TreeItem) => {
       let selection = (nodeOrItem ?? treeView.selection[0]) as TreeNode | undefined;
       if (selection?.type !== 'chapter') {

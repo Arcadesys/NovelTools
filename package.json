@@ -1,6 +1,6 @@
 {
   "name": "noveltools",
-  "publisher": "Austen Tucker",
+  "publisher": "arcades-ltd",
   "displayName": "NovelTools",
   "description": "Long-form writing: scene stitching, manuscript sidebar, typewriter sounds, word counts",
   "version": "1.0.0",
@@ -155,6 +155,11 @@
       {
         "command": "noveltools.removeScene",
         "title": "NovelTools: Remove Scene from Manuscript",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "noveltools.deleteScene",
+        "title": "NovelTools: Delete Scene",
         "icon": "$(trash)"
       },
       {
@@ -364,6 +369,11 @@
         },
         {
           "command": "noveltools.removeScene",
+          "when": "view == noveltools.manuscript && viewItem == scene",
+          "group": "navigation@1"
+        },
+        {
+          "command": "noveltools.deleteScene",
           "when": "view == noveltools.manuscript && viewItem == scene",
           "group": "navigation@1"
         },

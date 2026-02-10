@@ -2424,3 +2424,45 @@
 {"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770699422234,"hypothesisId":"H3"}
 {"location":"sceneList.ts:getManuscript","message":"Resolution branch","data":{"allIndexCount":0,"allIndexPaths":[]},"timestamp":1770699422234,"hypothesisId":"H1"}
 {"location":"sceneList.ts:getManuscript","message":"findProjectFile result","data":{"usedProjectFile":true,"projectFileRelative":"noveltools.yaml"},"timestamp":1770699422240,"hypothesisId":"H2"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700237302,"hypothesisId":"H3"}
+{"location":"sceneList.ts:getManuscript","message":"Resolution branch","data":{"allIndexCount":0,"allIndexPaths":[]},"timestamp":1770700237303,"hypothesisId":"H1"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700237304,"hypothesisId":"H3"}
+{"location":"sceneList.ts:getManuscript","message":"findProjectFile result","data":{"usedProjectFile":true,"projectFileRelative":"noveltools.yaml"},"timestamp":1770700237346,"hypothesisId":"H2"}
+{"location":"projectYaml.ts:parseLongformStrict","message":"Frontmatter regex did not match","data":{"contentStarts":"\"title\": \"The Two-Flat Cats\"\n\"chapters\":\n  - \"folder\": \"How it used to be\"\n    \""},"timestamp":1770700237353,"hypothesisId":"H1"}
+{"location":"projectYaml.ts:parseLongformStrict","message":"Return null: no longform","data":{"hasLongform":false},"timestamp":1770700237358,"hypothesisId":"H1"}
+{"location":"sceneList.ts:loadFromProjectFile","message":"Parse result","data":{"uri":"noveltools.yaml","contentLen":3498,"strictOk":false,"indexOk":true,"longformOk":true,"dataOk":true,"whichParser":"projectYaml","chaptersCount":5,"sceneCounts":[1,11,15,27,21]},"timestamp":1770700237362,"hypothesisId":"H2"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700238298,"hypothesisId":"H3"}
+{"location":"sceneList.ts:getManuscript","message":"Resolution branch","data":{"allIndexCount":0,"allIndexPaths":[]},"timestamp":1770700238299,"hypothesisId":"H1"}
+{"location":"sceneList.ts:getManuscript","message":"findProjectFile result","data":{"usedProjectFile":true,"projectFileRelative":"noveltools.yaml"},"timestamp":1770700238418,"hypothesisId":"H2"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700239045,"hypothesisId":"H3"}
+{"location":"manuscriptView.ts:getChildren(root)","message":"Tree root data","data":{"projectFileRelative":"noveltools.yaml","chaptersCount":5,"sceneCounts":[1,11,15,27,21]},"timestamp":1770700239047,"hypothesisId":"H4"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700239451,"hypothesisId":"H3"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700239708,"hypothesisId":"H3"}
+{"location":"sceneList.ts:getManuscript","message":"Resolution branch","data":{"allIndexCount":0,"allIndexPaths":[]},"timestamp":1770700239710,"hypothesisId":"H1"}
+{"location":"sceneList.ts:getManuscript","message":"findProjectFile result","data":{"usedProjectFile":true,"projectFileRelative":"noveltools.yaml"},"timestamp":1770700239717,"hypothesisId":"H2"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700239802,"hypothesisId":"H3"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700239877,"hypothesisId":"H3"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700239940,"hypothesisId":"H3"}
+{"location":"sceneList.ts:getManuscript","message":"Resolution branch","data":{"allIndexCount":0,"allIndexPaths":[]},"timestamp":1770700239941,"hypothesisId":"H1"}
+{"location":"sceneList.ts:getManuscript","message":"findProjectFile result","data":{"usedProjectFile":true,"projectFileRelative":"noveltools.yaml"},"timestamp":1770700239943,"hypothesisId":"H2"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700240005,"hypothesisId":"H3"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700240054,"hypothesisId":"H3"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700240093,"hypothesisId":"H3"}
+{"location":"sceneList.ts:getManuscript","message":"Resolution branch","data":{"allIndexCount":0,"allIndexPaths":[]},"timestamp":1770700240094,"hypothesisId":"H1"}
+{"location":"sceneList.ts:getManuscript","message":"findProjectFile result","data":{"usedProjectFile":true,"projectFileRelative":"noveltools.yaml"},"timestamp":1770700240101,"hypothesisId":"H2"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700240156,"hypothesisId":"H3"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700240199,"hypothesisId":"H3"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700240244,"hypothesisId":"H3"}
+{"location":"sceneList.ts:getManuscript","message":"Resolution branch","data":{"allIndexCount":0,"allIndexPaths":[]},"timestamp":1770700240244,"hypothesisId":"H1"}
+{"location":"sceneList.ts:getManuscript","message":"findProjectFile result","data":{"usedProjectFile":true,"projectFileRelative":"noveltools.yaml"},"timestamp":1770700240247,"hypothesisId":"H2"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700240298,"hypothesisId":"H3"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700240339,"hypothesisId":"H3"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700240384,"hypothesisId":"H3"}
+{"location":"sceneList.ts:getManuscript","message":"Resolution branch","data":{"allIndexCount":0,"allIndexPaths":[]},"timestamp":1770700240385,"hypothesisId":"H1"}
+{"location":"sceneList.ts:getManuscript","message":"findProjectFile result","data":{"usedProjectFile":true,"projectFileRelative":"noveltools.yaml"},"timestamp":1770700240388,"hypothesisId":"H2"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700240430,"hypothesisId":"H3"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700240475,"hypothesisId":"H3"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700240518,"hypothesisId":"H3"}
+{"location":"sceneList.ts:getManuscript","message":"Resolution branch","data":{"allIndexCount":0,"allIndexPaths":[]},"timestamp":1770700240518,"hypothesisId":"H1"}
+{"location":"sceneList.ts:getManuscript","message":"findProjectFile result","data":{"usedProjectFile":true,"projectFileRelative":"noveltools.yaml"},"timestamp":1770700240521,"hypothesisId":"H2"}
+{"location":"sceneList.ts:findAllIndexYaml","message":"Index files found","data":{"count":0,"paths":[]},"timestamp":1770700240563,"hypothesisId":"H3"}
