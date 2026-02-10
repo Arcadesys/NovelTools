@@ -14,6 +14,8 @@ import {
   reorderChapters,
   removeScene as removeSceneInData,
   removeChapter as removeChapterInData,
+  parseLongformStrict,
+  parseLongformIndexYaml,
 } from './projectYaml';
 import { buildProjectYamlToFile, writeProjectYaml } from './projectFile';
 import type { ManuscriptData, SceneStatus } from './projectYaml';
@@ -135,6 +137,79 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       await buildProjectYamlToFile(targetUri, result.data);
       clearManuscriptCache();
       treeDataProvider.refresh();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('noveltools.convertLongformToProjectYaml', async () => {
+      const folders = vscode.workspace.workspaceFolders;
+      if (!folders?.length) {
+        await vscode.window.showInformationMessage('Open a workspace folder first.');
+        return;
+      }
+      let sourceUri: vscode.Uri | undefined;
+      const activeDoc = vscode.window.activeTextEditor?.document;
+      const activeName = activeDoc?.uri.path.split(/[/\\]/).pop() ?? '';
+      const isIndexLike = /index\.(yaml|yml|md)$/i.test(activeName) || activeName.endsWith('manuscript.yaml');
+      if (activeDoc && isIndexLike && vscode.workspace.getWorkspaceFolder(activeDoc.uri)) {
+        sourceUri = activeDoc.uri;
+      }
+      if (!sourceUri) {
+        const allIndex = await findAllIndexYaml();
+        if (allIndex.length === 0) {
+          await vscode.window.showInformationMessage(
+            'No index files found. Create or open a Longform index (e.g. Index.YAML or index.yaml) and try again.'
+          );
+          return;
+        }
+        const picked = await vscode.window.showQuickPick(
+          allIndex.map((u) => ({
+            label: vscode.workspace.asRelativePath(u),
+            uri: u,
+          })),
+          { title: 'Select a Longform index to convert', matchOnDescription: true }
+        );
+        if (!picked) return;
+        sourceUri = picked.uri;
+      }
+      const bytes = await vscode.workspace.fs.readFile(sourceUri);
+      const content = new TextDecoder().decode(bytes);
+      const data = parseLongformStrict(content, sourceUri) ?? parseLongformIndexYaml(content, sourceUri);
+      if (!data || data.flatUris.length === 0) {
+        await vscode.window.showWarningMessage(
+          "This file doesn't appear to be a Longform index, or it has no scenes. Use a file with longform frontmatter and a scenes list."
+        );
+        return;
+      }
+      const name = getProjectFile();
+      const segments = name.split(/[/\\]/);
+      const targetUri =
+        segments.length > 1
+          ? vscode.Uri.joinPath(folders[0].uri, ...segments)
+          : vscode.Uri.joinPath(folders[0].uri, name);
+      try {
+        await vscode.workspace.fs.stat(targetUri);
+        const overwrite = await vscode.window.showWarningMessage(
+          `"${vscode.workspace.asRelativePath(targetUri)}" already exists. Overwrite with converted project YAML?`,
+          { modal: true },
+          'Overwrite'
+        );
+        if (overwrite !== 'Overwrite') return;
+      } catch {
+        // file doesn't exist, proceed
+      }
+      const dataForNovelTools: ManuscriptData = {
+        ...data,
+        longformMeta: undefined,
+        projectFileUri: targetUri,
+      };
+      await buildProjectYamlToFile(targetUri, dataForNovelTools);
+      await setActiveProjectUri(targetUri);
+      clearManuscriptCache();
+      treeDataProvider.refresh();
+      await vscode.window.showInformationMessage(
+        `Converted Longform index to ${vscode.workspace.asRelativePath(targetUri)}. You can now use it as your project file.`
+      );
     })
   );
 
@@ -477,7 +552,12 @@ class ManuscriptTreeDataProvider
       await setActiveProjectUri(element.projectFileUri);
       const result = await getManuscriptByUri(element.projectFileUri);
       await updateViewContext(result);
-      if (!result.data) return [];
+      // #region agent log
+      if (!result.data) {
+        fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:getChildren(document)',message:'Document has no data',data:{uri:vscode.workspace.asRelativePath(element.projectFileUri)},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+        return [];
+      }
+      // #endregion
       return result.data.chapters.map((ch, i) => ({
         type: 'chapter' as const,
         chapterIndex: i,

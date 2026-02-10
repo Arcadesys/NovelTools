@@ -46,6 +46,8 @@ const vscode = __importStar(require("vscode"));
 const config_1 = require("../config");
 const projectYaml_1 = require("./projectYaml");
 const INDEX_YAML = 'index.yaml';
+/** Additional index filenames to try when glob finds nothing (e.g. Index.YAML, Index.md). */
+const INDEX_CANDIDATES = ['index.yaml', 'Index.yaml', 'Index.YAML', 'Index.md', 'index.md'];
 const ACTIVE_PROJECT_URI_KEY = 'noveltools.activeProjectUri';
 let extensionContext = null;
 const cacheByUri = new Map();
@@ -120,24 +122,47 @@ async function setActiveProjectUri(uri) {
         return;
     await extensionContext.workspaceState.update(ACTIVE_PROJECT_URI_KEY, uri.toString());
 }
+/** Fallback globs when the configured glob finds nothing (handles brace-expansion edge cases). */
+const FALLBACK_INDEX_GLOBS = [
+    '**/Index.YAML',
+    '**/Index.yaml',
+    '**/index.yaml',
+    '**/Index.md',
+    '**/index.md',
+    '**/*[iI]ndex*.yaml',
+    '**/*[iI]ndex*.md',
+];
 /** Find all index.yaml files matching the configured glob. */
 async function findAllIndexYaml() {
+    // #region agent log
     const glob = (0, config_1.getIndexYamlGlob)();
-    const found = await vscode.workspace.findFiles(glob);
-    return found.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
+    let found = await vscode.workspace.findFiles(glob);
+    if (found.length === 0) {
+        for (const fallback of FALLBACK_INDEX_GLOBS) {
+            const extra = await vscode.workspace.findFiles(fallback);
+            found = [...found, ...extra];
+        }
+    }
+    const unique = Array.from(new Map(found.map((u) => [u.fsPath, u])).values());
+    const sorted = unique.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
+    fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'sceneList.ts:findAllIndexYaml', message: 'Index files found', data: { count: sorted.length, paths: sorted.map(u => vscode.workspace.asRelativePath(u)) }, timestamp: Date.now(), hypothesisId: 'H3' }) }).catch(() => { });
+    return sorted;
+    // #endregion
 }
 async function findIndexYaml() {
     const folders = vscode.workspace.workspaceFolders;
     if (!folders?.length)
         return null;
     for (const folder of folders) {
-        const candidate = vscode.Uri.joinPath(folder.uri, INDEX_YAML);
-        try {
-            await vscode.workspace.fs.readFile(candidate);
-            return candidate;
-        }
-        catch {
-            // continue
+        for (const name of INDEX_CANDIDATES) {
+            const candidate = vscode.Uri.joinPath(folder.uri, name);
+            try {
+                await vscode.workspace.fs.readFile(candidate);
+                return candidate;
+            }
+            catch {
+                // continue
+            }
         }
     }
     return null;
@@ -175,21 +200,32 @@ async function findProjectFile() {
 }
 function isIndexYaml(uri) {
     const base = path.basename(uri.fsPath);
-    return base === INDEX_YAML;
+    const ext = path.extname(uri.fsPath).toLowerCase();
+    const stem = base.slice(0, base.length - ext.length);
+    return /^index$/i.test(stem) && (ext === '.yaml' || ext === '.yml');
 }
 async function loadFromProjectFile(uri) {
+    // #region agent log
     const bytes = await vscode.workspace.fs.readFile(uri);
     const content = new TextDecoder().decode(bytes);
-    let data = (0, projectYaml_1.parseLongformStrict)(content, uri) ??
-        (0, projectYaml_1.parseIndexYaml)(content, uri) ??
-        (0, projectYaml_1.parseLongformIndexYaml)(content, uri);
+    const strict = (0, projectYaml_1.parseLongformStrict)(content, uri);
+    const index = (0, projectYaml_1.parseIndexYaml)(content, uri);
+    const longform = (0, projectYaml_1.parseLongformIndexYaml)(content, uri);
+    let data = strict ?? index ?? longform;
     if (!data && !isIndexYaml(uri)) {
         data = (0, projectYaml_1.parseProjectYaml)(content, uri);
     }
+    if (data?.chapters.some((ch) => ch.folderPath)) {
+        const baseDir = vscode.Uri.joinPath(uri, '..');
+        data = await (0, projectYaml_1.resolveChapterFolders)(data, baseDir);
+    }
+    const relativePath = vscode.workspace.asRelativePath(uri);
+    fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'sceneList.ts:loadFromProjectFile', message: 'Parse result', data: { uri: relativePath, contentLen: content.length, strictOk: !!strict, indexOk: !!index, longformOk: !!longform, dataOk: !!data }, timestamp: Date.now(), hypothesisId: 'H2' }) }).catch(() => { });
     if (data) {
         return { data, flatUris: data.flatUris, projectFileUri: uri };
     }
     return { data: null, flatUris: [], projectFileUri: uri };
+    // #endregion
 }
 async function loadFromConfig() {
     const sceneFiles = (0, config_1.getSceneFiles)();

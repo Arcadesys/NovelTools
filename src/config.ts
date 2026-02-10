@@ -7,7 +7,7 @@ export function getProjectFile(): string {
 }
 
 export function getIndexYamlGlob(): string {
-  return vscode.workspace.getConfiguration(SECTION).get<string>('indexYamlGlob') ?? '**/*[iI]ndex*.{yaml,md}';
+  return vscode.workspace.getConfiguration(SECTION).get<string>('indexYamlGlob') ?? '**/*[iI]ndex*.{yaml,yml,YAML,YML,md,MD}';
 }
 
 export function getSceneFiles(): string[] {

@@ -41,7 +41,7 @@ title: My Novel
 
 Paths are relative to the directory containing `index.yaml`. Reordering in the sidebar updates this file in the same format.
 
-**Longform (Obsidian) 1:1** — NovelTools discovers and edits index files that use the [Longform](https://github.com/kevboh/longform) plugin format. Use a note with frontmatter and a `longform` entry (`format`, `title`, `workflow`, `sceneFolder`, `scenes`). Scene names in `scenes` are without `.md`; they live under `sceneFolder` relative to the index file. Nested arrays in `scenes` are supported (indentation in the Longform UI). **Chapter names** are supported via an optional `chapterTitles` array in the `longform` block (one string per chapter, in order). Right‑click a chapter in the Manuscript view and choose **NovelTools: Rename Chapter…** to set or change its name; the YAML is updated with `chapterTitles`. Reordering in the sidebar writes back the same Longform structure. Both `Index.yaml` and `Index.md` (and names like `! Index.yaml`) are found via the `noveltools.indexYamlGlob` setting (default `**/*[iI]ndex*.{yaml,md}`).
+**Longform (Obsidian) 1:1** — NovelTools discovers and edits index files that use the [Longform](https://github.com/kevboh/longform) plugin format. Use a note with frontmatter and a `longform` entry (`format`, `title`, `workflow`, `sceneFolder`, `scenes`). Scene names in `scenes` are without `.md`; they live under `sceneFolder` relative to the index file. Nested arrays in `scenes` are supported (indentation in the Longform UI). **Chapter names** are supported via an optional `chapterTitles` array in the `longform` block (one string per chapter, in order). Right‑click a chapter in the Manuscript view and choose **NovelTools: Rename Chapter…** to set or change its name; the YAML is updated with `chapterTitles`. Reordering in the sidebar writes back the same Longform structure. Both `Index.yaml` and `Index.md` (and names like `Index.YAML`, `! Index.yaml`) are found via the `noveltools.indexYamlGlob` setting (default includes case variations for `.yaml` and `.md`).
 
 ## Commands
 
@@ -68,6 +68,7 @@ Paths are relative to the directory containing `index.yaml`. Reordering in the s
 | `noveltools.wordCount.stripMarkdown` | Strip markdown before counting (default: false). |
 | `noveltools.wordCount.manuscriptScope` | `project` (use project YAML scene list) or `workspace` (all .md files). |
 | `noveltools.chapterContextPath` | Path (relative to workspace root) where **Set Chapter as Context** writes the stitched chapter (default: `.cursor/noveltools-chapter-context.md`). |
+| `noveltools.indexYamlGlob` | Glob to discover index files like `Index.YAML` or `Index.md` (default: `**/*[iI]ndex*.{yaml,yml,YAML,YML,md,MD}`). |
 
 ## Agent / Cursor context
 
@@ -100,7 +101,14 @@ Run **NovelTools: Set Chapter as Context** from the Manuscript view (right‑cli
    - Choose `noveltools-0.1.0.vsix` from this project folder.
    - Reload Cursor if prompted.
 
-The extension will then appear in your sidebar (NovelTools icon) and in the Extensions list. Open a workspace with a `noveltools.yaml` (or markdown files) to use it.
+The extension will then appear in your sidebar (NovelTools icon) and in the Extensions list. **Open a folder** (File → Open Folder) that contains your project — not just a single file — so NovelTools can discover your index files.
+
+### Index.YAML or Index.md not found?
+
+- **Open a folder**: NovelTools needs a workspace folder open (File → Open Folder). If you open a single file or a `.code-workspace` that doesn’t include the right folder, the extension can’t see your index files.
+- **Check exclusions**: If `Index.YAML` or `Index.md` is inside a folder excluded by `files.exclude` or `search.exclude` in VS Code settings, it won’t be discovered. Adjust those settings if needed.
+- **Explicit path**: Set `noveltools.projectFile` to your index file path (e.g. `Index.YAML` or `manuscript/Index.md`) to point NovelTools at it directly.
+- **Custom glob**: Adjust `noveltools.indexYamlGlob` if your index filenames don’t match the default (e.g. `**/my-manuscript.{yaml,md}`).
 
 ## License
 

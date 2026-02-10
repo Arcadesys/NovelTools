@@ -17,6 +17,8 @@ export interface ChapterData {
   title?: string;
   sceneUris: vscode.Uri[];
   scenePaths: string[];
+  /** When set, this chapter is a folder: title = folder name, scenes = .md files inside (resolved async). */
+  folderPath?: string;
 }
 
 export interface ManuscriptData {
@@ -35,10 +37,10 @@ export interface ManuscriptData {
   };
 }
 
-interface RawChapter {
-  title?: string;
-  scenes: string[];
-}
+/** Chapter in YAML: string = folder path, or object with folder and optional title, or legacy { title, scenes }. */
+type RawChapter =
+  | string
+  | { title?: string; scenes?: string[]; folder?: string };
 
 interface RawManuscript {
   title?: string;
@@ -142,16 +144,30 @@ export function parseLongformStrict(
     if (match) {
       raw = YAML.parse(match[1]) as Record<string, unknown> | null;
     } else {
+      // #region agent log
+      fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'projectYaml.ts:parseLongformStrict',message:'Frontmatter regex did not match',data:{contentStarts:content.slice(0,80)},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
       raw = YAML.parse(content) as Record<string, unknown> | null;
+      // #endregion
     }
-    if (!raw || typeof raw !== 'object') return null;
-
+    if (!raw || typeof raw !== 'object') {
+      fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'projectYaml.ts:parseLongformStrict',message:'Return null: no raw object',data:{match:!!match,frontLen:match?match[1].length:0},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+      return null;
+    }
     const longform = raw.longform;
-    if (!longform || typeof longform !== 'object' || longform === null) return null;
+    if (!longform || typeof longform !== 'object' || longform === null) {
+      fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'projectYaml.ts:parseLongformStrict',message:'Return null: no longform',data:{hasLongform:!!raw.longform},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+      return null;
+    }
+    // #endregion
     const lf = longform as Record<string, unknown>;
 
     const format = lf.format === 'single' || lf.format === 'scenes' ? lf.format : undefined;
-    if (!format) return null;
+    // #region agent log
+    if (!format) {
+      fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'projectYaml.ts:parseLongformStrict',message:'Return null: no format',data:{formatVal:lf.format},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+      return null;
+    }
+    // #endregion
 
     const title = lf.title != null ? String(lf.title) : undefined;
     const workflow = lf.workflow != null ? String(lf.workflow) : undefined;
@@ -217,8 +233,11 @@ export function parseLongformStrict(
       sceneStatus,
       longformMeta: meta,
     };
-  } catch {
+  } catch (e) {
+    // #region agent log
+    fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'projectYaml.ts:parseLongformStrict',message:'Return null: exception',data:{err:String(e)},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
     return null;
+    // #endregion
   }
 }
 
@@ -329,6 +348,21 @@ export function parseLongformIndexYaml(
   }
 }
 
+function normalizeRawChapter(ch: RawChapter): { title?: string; scenes?: string[]; folder?: string } {
+  if (typeof ch === 'string') {
+    const folder = ch.trim();
+    return folder ? { folder } : { scenes: [] };
+  }
+  const obj = ch as { title?: string; scenes?: string[]; folder?: string };
+  if (obj.folder != null && String(obj.folder).trim() !== '') {
+    return { title: obj.title, folder: String(obj.folder).trim() };
+  }
+  return {
+    title: obj.title,
+    scenes: Array.isArray(obj.scenes) ? obj.scenes.map((p) => (typeof p === 'string' ? p : String(p))) : [],
+  };
+}
+
 export function parseProjectYaml(
   content: string,
   projectFileUri: vscode.Uri
@@ -339,14 +373,27 @@ export function parseProjectYaml(
     const baseDir = vscode.Uri.joinPath(projectFileUri, '..');
     const chapters: ChapterData[] = [];
     const flatUris: vscode.Uri[] = [];
-    for (const ch of raw.chapters) {
-      const scenePaths = Array.isArray(ch.scenes) ? ch.scenes : [];
-      const sceneUris = scenePaths.map((p) => {
-        const pathStr = typeof p === 'string' ? p : String(p);
-        return vscode.Uri.joinPath(baseDir, pathStr);
-      });
-      chapters.push({ title: ch.title, sceneUris, scenePaths });
-      flatUris.push(...sceneUris);
+    for (const rawCh of raw.chapters) {
+      const ch = normalizeRawChapter(rawCh);
+      if (ch.folder !== undefined) {
+        const folderPath = ch.folder;
+        const folderName = path.basename(folderPath.replace(/\/$/, '')) || folderPath;
+        chapters.push({
+          title: ch.title ?? folderName,
+          sceneUris: [],
+          scenePaths: [],
+          folderPath,
+        });
+        // flatUris filled by resolveChapterFolders
+      } else {
+        const scenePaths = ch.scenes ?? [];
+        const sceneUris = scenePaths.map((p) => {
+          const pathStr = typeof p === 'string' ? p : String(p);
+          return vscode.Uri.joinPath(baseDir, pathStr);
+        });
+        chapters.push({ title: ch.title, sceneUris, scenePaths });
+        flatUris.push(...sceneUris);
+      }
     }
     let sceneStatus: ManuscriptData['sceneStatus'];
     const rawStatus = raw.sceneStatus;
@@ -369,13 +416,64 @@ export function parseProjectYaml(
   }
 }
 
+/** Resolve folder chapters by reading .md files from each chapter folder. Call after parseProjectYaml when chapters use folder. */
+export async function resolveChapterFolders(
+  data: ManuscriptData,
+  baseDir: vscode.Uri
+): Promise<ManuscriptData> {
+  const hasFolder = data.chapters.some((ch) => ch.folderPath);
+  if (!hasFolder) return data;
+
+  const chapters: ChapterData[] = [];
+  const flatUris: vscode.Uri[] = [];
+
+  for (const ch of data.chapters) {
+    if (!ch.folderPath) {
+      chapters.push(ch);
+      flatUris.push(...ch.sceneUris);
+      continue;
+    }
+    const folderUri = vscode.Uri.joinPath(baseDir, ch.folderPath);
+    let entries: [string, vscode.FileType][];
+    try {
+      entries = await vscode.workspace.fs.readDirectory(folderUri);
+    } catch {
+      chapters.push({ ...ch, sceneUris: [], scenePaths: [] });
+      continue;
+    }
+    const mdNames = entries
+      .filter(([name, type]) => type === vscode.FileType.File && /\.md$/i.test(name))
+      .map(([name]) => name)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    const scenePaths = mdNames.map((name) => {
+      const rel = ch.folderPath + '/' + name;
+      return rel.split(path.sep).join('/');
+    });
+    const sceneUris = mdNames.map((name) => vscode.Uri.joinPath(folderUri, name));
+    const folderName = path.basename(ch.folderPath.replace(/\/$/, '')) || ch.folderPath;
+    chapters.push({
+      title: ch.title ?? folderName,
+      sceneUris,
+      scenePaths,
+      folderPath: ch.folderPath,
+    });
+    flatUris.push(...sceneUris);
+  }
+
+  return { ...data, chapters, flatUris };
+}
+
 export function serializeToYaml(data: ManuscriptData): string {
   const raw: RawManuscript = {
     title: data.title,
-    chapters: data.chapters.map((ch) => ({
-      title: ch.title,
-      scenes: ch.scenePaths,
-    })),
+    chapters: data.chapters.map((ch) => {
+      if (ch.folderPath) {
+        return ch.title !== path.basename(ch.folderPath.replace(/\/$/, ''))
+          ? { title: ch.title, folder: ch.folderPath }
+          : { folder: ch.folderPath };
+      }
+      return { title: ch.title, scenes: ch.scenePaths };
+    }),
   };
   if (data.sceneStatus && Object.keys(data.sceneStatus).length > 0) {
     raw.sceneStatus = data.sceneStatus;

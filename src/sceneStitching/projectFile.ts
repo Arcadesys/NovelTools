@@ -9,7 +9,10 @@ import {
 } from './projectYaml';
 
 function isIndexYaml(uri: vscode.Uri): boolean {
-  return path.basename(uri.fsPath) === 'index.yaml';
+  const base = path.basename(uri.fsPath);
+  const ext = path.extname(base).toLowerCase();
+  const stem = base.slice(0, base.length - ext.length);
+  return /^index$/i.test(stem) && (ext === '.yaml' || ext === '.yml');
 }
 
 export async function writeProjectYaml(uri: vscode.Uri, data: ManuscriptData): Promise<void> {

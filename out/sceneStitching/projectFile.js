@@ -39,7 +39,10 @@ const path = __importStar(require("path"));
 const vscode = __importStar(require("vscode"));
 const projectYaml_1 = require("./projectYaml");
 function isIndexYaml(uri) {
-    return path.basename(uri.fsPath) === 'index.yaml';
+    const base = path.basename(uri.fsPath);
+    const ext = path.extname(base).toLowerCase();
+    const stem = base.slice(0, base.length - ext.length);
+    return /^index$/i.test(stem) && (ext === '.yaml' || ext === '.yml');
 }
 async function writeProjectYaml(uri, data) {
     const baseDir = vscode.Uri.joinPath(uri, '..');

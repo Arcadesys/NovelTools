@@ -50,7 +50,7 @@ function getProjectFile() {
     return vscode.workspace.getConfiguration(SECTION).get('projectFile') ?? 'noveltools.yaml';
 }
 function getIndexYamlGlob() {
-    return vscode.workspace.getConfiguration(SECTION).get('indexYamlGlob') ?? '**/*[iI]ndex*.{yaml,md}';
+    return vscode.workspace.getConfiguration(SECTION).get('indexYamlGlob') ?? '**/*[iI]ndex*.{yaml,yml,YAML,YML,md,MD}';
 }
 function getSceneFiles() {
     return vscode.workspace.getConfiguration(SECTION).get('sceneFiles') ?? [];
