@@ -55,7 +55,7 @@ const QUICK_START_FALLBACK = `# NovelTools Quick Start
 
 Tips
 - Settings live under "NovelTools" in VS Code Settings.
-- Word counts and typewriter sounds are optional toggles.
+- Word counts are optional toggles.
 `;
 const STATUS_EMOJI = {
     done: '🟢',
@@ -228,6 +228,7 @@ function registerManuscriptView(context) {
     context.subscriptions.push(vscode.commands.registerCommand('noveltools.openProjectYaml', async () => {
         try {
             // #region agent log
+            console.log('[NovelTools] openProjectYaml command started');
             fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'manuscriptView.ts:openProjectYaml', message: 'Command started', data: { workspaceFolders: !!vscode.workspace.workspaceFolders?.length }, timestamp: Date.now(), hypothesisId: 'H1' }) }).catch(() => { });
             // #endregion
             const openAndFocus = async (uri) => {
@@ -263,20 +264,21 @@ function registerManuscriptView(context) {
                 return;
             }
             // Show file picker to let user select a project YAML file
-            const defaultUri = getConfiguredProjectUri();
-            const defaultPath = defaultUri ? defaultUri.fsPath : undefined;
+            // Always use workspace root as defaultUri to ensure file picker always shows
+            const defaultUri = folders[0].uri;
             // #region agent log
-            const defaultUriExists = defaultUri ? await vscode.workspace.fs.stat(defaultUri).then(() => true, () => false) : false;
-            fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'manuscriptView.ts:openProjectYaml', message: 'Before showOpenDialog', data: { defaultUri: defaultUri?.fsPath, defaultUriExists, workspaceRoot: folders[0].uri.fsPath, projectFileConfig: (0, config_1.getProjectFile)() }, timestamp: Date.now(), hypothesisId: 'H3,H5' }) }).catch(() => { });
+            console.log('[NovelTools] Before showOpenDialog, workspaceRoot:', defaultUri.fsPath);
+            fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'manuscriptView.ts:openProjectYaml', message: 'Before showOpenDialog', data: { defaultUri: defaultUri.fsPath, workspaceRoot: folders[0].uri.fsPath, projectFileConfig: (0, config_1.getProjectFile)() }, timestamp: Date.now(), hypothesisId: 'H3,H5' }) }).catch(() => { });
             // #endregion
             // #region agent log
+            console.log('[NovelTools] Calling showOpenDialog');
             fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'manuscriptView.ts:openProjectYaml', message: 'Calling showOpenDialog', data: {}, timestamp: Date.now(), hypothesisId: 'H3' }) }).catch(() => { });
             // #endregion
             const selectedUri = await vscode.window.showOpenDialog({
                 canSelectFiles: true,
                 canSelectFolders: false,
                 canSelectMany: false,
-                defaultUri: defaultUri || folders[0].uri,
+                defaultUri: defaultUri,
                 openLabel: 'Open Project YAML',
                 filters: {
                     'YAML files': ['yaml', 'yml', 'YAML', 'YML'],
@@ -285,6 +287,7 @@ function registerManuscriptView(context) {
                 title: 'Select Project YAML File'
             });
             // #region agent log
+            console.log('[NovelTools] After showOpenDialog, selectedUri:', selectedUri?.map(u => u.fsPath), 'length:', selectedUri?.length);
             fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'manuscriptView.ts:openProjectYaml', message: 'After showOpenDialog', data: { selectedUri: selectedUri?.map(u => u.fsPath), selectedUriLength: selectedUri?.length, selectedUriIsUndefined: selectedUri === undefined, selectedUriIsNull: selectedUri === null }, timestamp: Date.now(), hypothesisId: 'H2' }) }).catch(() => { });
             // #endregion
             if (selectedUri && selectedUri.length > 0) {
@@ -292,8 +295,12 @@ function registerManuscriptView(context) {
                 return;
             }
             // If user cancelled, check if there's an existing project file and offer to open it
+            // #region agent log
+            console.log('[NovelTools] User cancelled file picker, checking for existing project file');
+            // #endregion
             const result = await (0, sceneList_1.getManuscript)();
             // #region agent log
+            console.log('[NovelTools] After getManuscript, hasProjectFileUri:', !!result.projectFileUri, 'uri:', result.projectFileUri?.fsPath);
             fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'manuscriptView.ts:openProjectYaml', message: 'After getManuscript', data: { hasProjectFileUri: !!result.projectFileUri, projectFileUri: result.projectFileUri?.fsPath, hasData: !!result.data }, timestamp: Date.now(), hypothesisId: 'H4' }) }).catch(() => { });
             // #endregion
             if (result.projectFileUri) {

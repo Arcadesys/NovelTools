@@ -2,7 +2,7 @@
   "name": "noveltools",
   "publisher": "arcades-ltd",
   "displayName": "NovelTools",
-  "description": "Long-form writing: scene stitching, manuscript sidebar, typewriter sounds, word counts",
+  "description": "Long-form writing: scene stitching, manuscript sidebar, word counts",
   "version": "1.0.7",
   "repository": {
     "type": "git",
@@ -54,23 +54,6 @@
           "type": "string",
           "default": "**/*[iI]ndex*.{yaml,yml,YAML,YML,md,MD}",
           "description": "Glob to discover index/manuscript files (Longform and NovelTools). Matches Index.YAML, index.yaml, Index.md, etc. Use archive/**/*[iI]ndex*.{yaml,yml,YAML,YML,md,MD} to restrict to a folder."
-        },
-        "noveltools.typewriterSound.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable typewriter sound on keypress."
-        },
-        "noveltools.typewriterSound.volume": {
-          "type": "number",
-          "default": 0.3,
-          "minimum": 0,
-          "maximum": 1,
-          "description": "Volume for typewriter sound (0-1)."
-        },
-        "noveltools.typewriterSound.path": {
-          "type": "string",
-          "default": "",
-          "description": "Optional custom WAV path (resource path)."
         },
         "noveltools.wordCount.stripMarkdown": {
           "type": "boolean",

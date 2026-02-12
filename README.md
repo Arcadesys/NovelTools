@@ -1,12 +1,11 @@
 # NovelTools
 
-A Cursor/VS Code extension for long-form writing: scene stitching, manuscript sidebar with drag-and-drop, typewriter sounds, and word counts.
+A Cursor/VS Code extension for long-form writing: scene stitching, manuscript sidebar with drag-and-drop, and word counts.
 
 ## Features
 
 - **Scene stitching**: Navigate between scenes and chapters; open a stitched (combined) view of the whole manuscript.
 - **Manuscript sidebar**: Pull out the NovelTools sidebar to see the full manuscript as a tree (chapters → scenes). Drag and drop to reorder chapters or scenes; the project YAML is updated automatically. If you don’t have a project file yet, run **NovelTools: Build Project YAML** to create one from the current outline (or drag to reorder once—the file will be created on first drop). After that, all reordering is reflected in the YAML.
-- **Typewriter sounds**: Optional keypress sound while typing in markdown (with throttling).
 - **Word counts**: Per-document word count and manuscript total in the status bar.
 - **Section status**: Mark each scene as done (🟢), drafted (🟡), or spiked out (🔴) from the Manuscript view context menu. Status is stored in the project YAML so you can see progress at a glance.
 
@@ -86,9 +85,6 @@ Paths are relative to the directory containing `index.yaml`. Reordering in the s
 | `noveltools.sceneFiles` | Fallback: ordered scene paths when no project file. |
 | `noveltools.sceneGlob` | Fallback: glob for scene files when no project file (default: `**/*.md`). |
 | `noveltools.chapterGrouping` | When building from files without a project YAML: `flat` (one chapter) or `folder` (group by folder). |
-| `noveltools.typewriterSound.enabled` | Enable typewriter sound (default: true). |
-| `noveltools.typewriterSound.volume` | Volume 0–1 (default: 0.3). |
-| `noveltools.typewriterSound.path` | Optional path to a custom WAV file. |
 | `noveltools.wordCount.stripMarkdown` | Strip markdown before counting (default: false). |
 | `noveltools.wordCount.manuscriptScope` | `project` (use project YAML scene list) or `workspace` (all .md files). |
 | `noveltools.chapterContextPath` | Path (relative to workspace root) where **Set Chapter as Context** writes the stitched chapter (default: `.cursor/noveltools-chapter-context.md`). |

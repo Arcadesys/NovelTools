@@ -38,9 +38,6 @@ exports.getIndexYamlGlob = getIndexYamlGlob;
 exports.getSceneFiles = getSceneFiles;
 exports.getSceneGlob = getSceneGlob;
 exports.getChapterGrouping = getChapterGrouping;
-exports.getTypewriterSoundEnabled = getTypewriterSoundEnabled;
-exports.getTypewriterSoundVolume = getTypewriterSoundVolume;
-exports.getTypewriterSoundPath = getTypewriterSoundPath;
 exports.getWordCountStripMarkdown = getWordCountStripMarkdown;
 exports.getWordCountManuscriptScope = getWordCountManuscriptScope;
 exports.getChapterContextPath = getChapterContextPath;
@@ -61,15 +58,6 @@ function getSceneGlob() {
 function getChapterGrouping() {
     const grouping = vscode.workspace.getConfiguration(SECTION).get('chapterGrouping') ?? 'flat';
     return grouping === 'folder' ? 'folder' : 'flat';
-}
-function getTypewriterSoundEnabled() {
-    return vscode.workspace.getConfiguration(SECTION).get('typewriterSound.enabled') ?? true;
-}
-function getTypewriterSoundVolume() {
-    return vscode.workspace.getConfiguration(SECTION).get('typewriterSound.volume') ?? 0.3;
-}
-function getTypewriterSoundPath() {
-    return vscode.workspace.getConfiguration(SECTION).get('typewriterSound.path') ?? '';
 }
 function getWordCountStripMarkdown() {
     return vscode.workspace.getConfiguration(SECTION).get('wordCount.stripMarkdown') ?? false;

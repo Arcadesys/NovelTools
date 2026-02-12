@@ -23,18 +23,6 @@ export function getChapterGrouping(): 'flat' | 'folder' {
   return grouping === 'folder' ? 'folder' : 'flat';
 }
 
-export function getTypewriterSoundEnabled(): boolean {
-  return vscode.workspace.getConfiguration(SECTION).get<boolean>('typewriterSound.enabled') ?? true;
-}
-
-export function getTypewriterSoundVolume(): number {
-  return vscode.workspace.getConfiguration(SECTION).get<number>('typewriterSound.volume') ?? 0.3;
-}
-
-export function getTypewriterSoundPath(): string {
-  return vscode.workspace.getConfiguration(SECTION).get<string>('typewriterSound.path') ?? '';
-}
-
 export function getWordCountStripMarkdown(): boolean {
   return vscode.workspace.getConfiguration(SECTION).get<boolean>('wordCount.stripMarkdown') ?? false;
 }

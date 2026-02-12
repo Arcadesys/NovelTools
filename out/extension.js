@@ -43,7 +43,6 @@ const moveScene_1 = require("./sceneStitching/moveScene");
 const addScene_1 = require("./sceneStitching/addScene");
 const stitchedProvider_1 = require("./sceneStitching/stitchedProvider");
 const manuscriptView_1 = require("./sceneStitching/manuscriptView");
-const soundController_1 = require("./typewriter/soundController");
 const sceneList_1 = require("./sceneStitching/sceneList");
 function safeRegister(name, fn) {
     try {
@@ -64,7 +63,6 @@ function activate(context) {
     safeRegister('Move Scene', () => (0, moveScene_1.registerMoveScene)(context));
     safeRegister('Add Scene', () => (0, addScene_1.registerAddScene)(context));
     safeRegister('Word Count', () => (0, statusBar_1.registerWordCount)(context));
-    safeRegister('Typewriter Sound', () => (0, soundController_1.registerTypewriterSound)(context));
 }
 function deactivate() { }
 //# sourceMappingURL=extension.js.map

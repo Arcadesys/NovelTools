@@ -6,7 +6,6 @@ import { registerMoveScene } from './sceneStitching/moveScene';
 import { registerAddScene } from './sceneStitching/addScene';
 import { registerStitchedProvider } from './sceneStitching/stitchedProvider';
 import { registerManuscriptView } from './sceneStitching/manuscriptView';
-import { registerTypewriterSound } from './typewriter/soundController';
 import { initSceneList } from './sceneStitching/sceneList';
 
 function safeRegister(name: string, fn: () => void): void {
@@ -28,7 +27,6 @@ export function activate(context: vscode.ExtensionContext): void {
   safeRegister('Move Scene', () => registerMoveScene(context));
   safeRegister('Add Scene', () => registerAddScene(context));
   safeRegister('Word Count', () => registerWordCount(context));
-  safeRegister('Typewriter Sound', () => registerTypewriterSound(context));
 }
 
 export function deactivate(): void {}
