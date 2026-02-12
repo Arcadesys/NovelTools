@@ -43,6 +43,7 @@ const moveScene_1 = require("./sceneStitching/moveScene");
 const addScene_1 = require("./sceneStitching/addScene");
 const stitchedProvider_1 = require("./sceneStitching/stitchedProvider");
 const manuscriptView_1 = require("./sceneStitching/manuscriptView");
+const sceneCardsView_1 = require("./sceneStitching/sceneCardsView");
 const sceneList_1 = require("./sceneStitching/sceneList");
 function safeRegister(name, fn) {
     try {
@@ -57,6 +58,7 @@ function safeRegister(name, fn) {
 function activate(context) {
     (0, sceneList_1.initSceneList)(context);
     safeRegister('Manuscript View', () => (0, manuscriptView_1.registerManuscriptView)(context));
+    safeRegister('Scene Cards View', () => (0, sceneCardsView_1.registerSceneCardsView)(context));
     safeRegister('Stitched Provider', () => (0, stitchedProvider_1.registerStitchedProvider)(context));
     safeRegister('Navigation', () => (0, navigation_1.registerNavigation)(context));
     safeRegister('Move Chapter', () => (0, moveChapter_1.registerMoveChapter)(context));

@@ -226,6 +226,11 @@
         "command": "noveltools.selectDocument",
         "title": "NovelTools: Select Document",
         "icon": "$(file-directory)"
+      },
+      {
+        "command": "noveltools.refreshSceneCards",
+        "title": "NovelTools: Refresh Scene Cards",
+        "icon": "$(refresh)"
       }
     ],
     "viewsContainers": {
@@ -242,6 +247,11 @@
         {
           "id": "noveltools.manuscript",
           "name": "Manuscript"
+        },
+        {
+          "id": "noveltools.sceneCards",
+          "name": "Scene Cards",
+          "type": "webview"
         }
       ]
     },
@@ -292,6 +302,21 @@
           "command": "noveltools.refreshManuscript",
           "when": "view == noveltools.manuscript",
           "group": "navigation@4"
+        },
+        {
+          "command": "noveltools.openProjectYaml",
+          "when": "view == noveltools.sceneCards",
+          "group": "navigation@1"
+        },
+        {
+          "command": "noveltools.openStitchedManuscript",
+          "when": "view == noveltools.sceneCards && noveltools.hasScenes",
+          "group": "navigation@2"
+        },
+        {
+          "command": "noveltools.refreshSceneCards",
+          "when": "view == noveltools.sceneCards",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
