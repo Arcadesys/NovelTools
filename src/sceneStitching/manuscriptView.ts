@@ -20,7 +20,7 @@ import {
 import { buildProjectYamlToFile, writeProjectYaml } from './projectFile';
 import type { ManuscriptData, SceneStatus } from './projectYaml';
 
-const VIEW_ID = 'noveltools.manuscript';
+const VIEW_ID = 'noveltools.manuscriptTree';
 const MIME_TREE = `application/vnd.code.tree.${VIEW_ID}`;
 const QUICK_START_FALLBACK = `# NovelTools Quick Start
 
@@ -160,9 +160,10 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
   });
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('noveltools.refreshManuscript', () => {
+    vscode.commands.registerCommand('noveltools.refreshManuscript', async () => {
       clearManuscriptCache();
       treeDataProvider.refresh();
+      await vscode.commands.executeCommand('noveltools.refreshSceneCards');
     })
   );
 
@@ -794,6 +795,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       if (picked) {
         await setActiveProjectUri(picked.uri);
         treeDataProvider.refresh();
+        await vscode.commands.executeCommand('noveltools.refreshSceneCards');
       }
     })
   );
