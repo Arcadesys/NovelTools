@@ -823,6 +823,10 @@ function renderHtml(webview: vscode.Webview, nonce: string, model: SceneCardsMod
         const chapter = node.closest('[data-chapter-block]');
         if (chapter) chapter.classList.add('drag-over');
       });
+      node.addEventListener('dragleave', () => {
+        const chapter = node.closest('[data-chapter-block]');
+        if (chapter) chapter.classList.remove('drag-over');
+      });
       node.addEventListener('drop', (event) => {
         if (dragState.type !== 'chapter') return;
         event.preventDefault();
