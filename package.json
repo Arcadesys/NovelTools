@@ -3,7 +3,7 @@
   "publisher": "arcades-ltd",
   "displayName": "NovelTools",
   "description": "Long-form writing: scene stitching, manuscript sidebar, typewriter sounds, word counts",
-  "version": "1.0.0",
+  "version": "1.0.7",
   "repository": {
     "type": "git",
     "url": "https://github.com/Arcadesys/NovelTools.git"
@@ -201,6 +201,11 @@
         "title": "NovelTools: Open Stitched Chapter"
       },
       {
+        "command": "noveltools.openStitchedSelection",
+        "title": "NovelTools: Open Stitched Selection",
+        "icon": "$(combine)"
+      },
+      {
         "command": "noveltools.setChapterAsContext",
         "title": "NovelTools: Set Chapter as Context"
       },
@@ -260,7 +265,7 @@
     "viewsWelcome": [
       {
         "view": "noveltools.manuscript",
-        "contents": "# Welcome to NovelTools\n\nGet started quickly:\n\n- [Build Project YAML](command:noveltools.buildProjectYaml)\n- [Convert Longform to Project YAML](command:noveltools.convertLongformToProjectYaml)\n- [Open Project YAML](command:noveltools.openProjectYaml)\n- [Open Stitched Manuscript](command:noveltools.openStitchedManuscript)\n\nHow it works:\n\n- The Manuscript view mirrors `noveltools.yaml` or `index.yaml`.\n- Have an Obsidian Longform index? Use **Convert Longform to Project YAML** to create a NovelTools project from it.\n- With multiple index.yaml files, select a document in the tree to switch manuscripts.\n- Drag chapters/scenes to reorder; the YAML updates automatically.\n- Use the toolbar buttons above for common actions.\n\n[Quick Start Guide](command:noveltools.showQuickStart) | [Settings](command:noveltools.openSettings)"
+        "contents": "# Welcome to NovelTools\n\nVersion: **v1.0.7**\n\nWrite without tech friction:\n\n- $(book) [Open Stitched Manuscript](command:noveltools.openStitchedManuscript)\n- $(go-to-file) [Open Project YAML](command:noveltools.openProjectYaml)\n- $(new-file) [Build Project YAML](command:noveltools.buildProjectYaml)\n- $(file-symlink-file) [Convert Longform to Project YAML](command:noveltools.convertLongformToProjectYaml)\n\nWhat you'll see here:\n\n- A **story-first Manuscript tree** with chapters and scenes.\n- **Drag to reorder** and NovelTools updates your YAML automatically.\n- **Section status markers** to track done, drafted, and spiked scenes.\n\nTip: right-click a chapter to open a stitched chapter preview.\n\n[Quick Start Guide](command:noveltools.showQuickStart) | [Settings](command:noveltools.openSettings)"
       }
     ],
     "menus": {
@@ -292,6 +297,11 @@
         },
         {
           "command": "noveltools.openStitchedManuscript",
+          "when": "view == noveltools.manuscript && noveltools.hasScenes",
+          "group": "navigation@3"
+        },
+        {
+          "command": "noveltools.openStitchedSelection",
           "when": "view == noveltools.manuscript && noveltools.hasScenes",
           "group": "navigation@3"
         },
@@ -364,6 +374,11 @@
         },
         {
           "command": "noveltools.moveSceneDown",
+          "when": "view == noveltools.manuscript && viewItem == scene",
+          "group": "navigation@1"
+        },
+        {
+          "command": "noveltools.openStitchedSelection",
           "when": "view == noveltools.manuscript && viewItem == scene",
           "group": "navigation@1"
         },

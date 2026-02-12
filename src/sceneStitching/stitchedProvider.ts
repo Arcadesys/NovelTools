@@ -1,3 +1,4 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { getChapterContextPath } from '../config';
 import { getManuscript } from './sceneList';
@@ -7,6 +8,21 @@ const AUTHORITY = 'stitched';
 const MANUSCRIPT_PATH = 'manuscript';
 
 const CHAPTER_PATH_PREFIX = 'chapter/';
+
+interface StitchedScene {
+  index: number;
+  heading: string;
+  source: string;
+  body: string;
+  wordCount: number;
+  unreadable: boolean;
+}
+
+interface StitchedChapter {
+  index: number;
+  heading: string;
+  scenes: StitchedScene[];
+}
 
 /** URI for the full stitched manuscript. */
 export function getStitchedManuscriptUri(): vscode.Uri {
@@ -96,29 +112,131 @@ export function registerStitchedProvider(context: vscode.ExtensionContext): void
   );
 }
 
+function countWords(text: string): number {
+  const matches = text.match(/\b[\p{L}\p{N}][\p{L}\p{N}'-]*\b/gu);
+  return matches?.length ?? 0;
+}
+
+function formatSceneCount(count: number): string {
+  return `${count} ${count === 1 ? 'scene' : 'scenes'}`;
+}
+
+function chapterHeading(title: string | undefined, chapterIndex: number): string {
+  const fallback = `Chapter ${chapterIndex + 1}`;
+  const trimmed = title?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : fallback;
+}
+
+function sceneHeading(uri: vscode.Uri, sceneIndex: number): string {
+  const stem = path.basename(uri.fsPath, path.extname(uri.fsPath));
+  const pretty = stem.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return pretty || `Scene ${sceneIndex + 1}`;
+}
+
+function renderStitchedHeader(title: string, chapterCount: number, sceneCount: number, wordCount: number): string {
+  const generatedAt = new Date().toLocaleString();
+  return [
+    `# ${title}`,
+    '',
+    `> Stitched with NovelTools on ${generatedAt}.`,
+    '',
+    `**${chapterCount} chapters** · **${sceneCount} scenes** · **${wordCount.toLocaleString()} words**`,
+    '',
+  ].join('\n');
+}
+
+async function collectStitchedScenes(sceneUris: vscode.Uri[]): Promise<StitchedScene[]> {
+  const scenes: StitchedScene[] = [];
+  for (let i = 0; i < sceneUris.length; i++) {
+    const uri = sceneUris[i];
+    const source = vscode.workspace.asRelativePath(uri);
+    const heading = sceneHeading(uri, i);
+    try {
+      const doc = await vscode.workspace.openTextDocument(uri);
+      const body = doc.getText().trimEnd();
+      scenes.push({
+        index: i,
+        heading,
+        source,
+        body,
+        wordCount: countWords(body),
+        unreadable: false,
+      });
+    } catch {
+      scenes.push({
+        index: i,
+        heading,
+        source,
+        body: `> [!warning]\n> Could not read \`${source}\`.`,
+        wordCount: 0,
+        unreadable: true,
+      });
+    }
+  }
+  return scenes;
+}
+
+function renderChapterBlock(chapter: StitchedChapter): string {
+  const out: string[] = [
+    `## ${chapter.index + 1}. ${chapter.heading}`,
+    '',
+    `> ${formatSceneCount(chapter.scenes.length)}`,
+    '',
+  ];
+
+  if (chapter.scenes.length === 0) {
+    out.push('> _No scenes found in this chapter._', '', '---', '');
+    return out.join('\n');
+  }
+
+  for (const scene of chapter.scenes) {
+    out.push(`### ${chapter.index + 1}.${scene.index + 1} ${scene.heading}`);
+    out.push('');
+    out.push(
+      scene.unreadable
+        ? `*Source:* \`${scene.source}\``
+        : `*Source:* \`${scene.source}\` · *${scene.wordCount.toLocaleString()} words*`
+    );
+    out.push('');
+    out.push(scene.body);
+    out.push('', '---', '');
+  }
+
+  return out.join('\n');
+}
+
 async function buildStitchedContent(): Promise<string> {
   const { data } = await getManuscript();
   if (!data || data.flatUris.length === 0) return 'No manuscript. Add a noveltools.yaml or scenes.';
-  const parts: string[] = [];
-  let chapterIndex = 0;
-  for (const ch of data.chapters) {
-    if (ch.title) {
-      parts.push(`## ${ch.title}\n\n`);
-    } else {
-      chapterIndex++;
-      parts.push(`## Chapter ${chapterIndex}\n\n`);
-    }
-    for (const uri of ch.sceneUris) {
-      try {
-        const doc = await vscode.workspace.openTextDocument(uri);
-        parts.push(doc.getText());
-        parts.push('\n\n');
-      } catch {
-        parts.push(`<!-- ${uri.fsPath} (unreadable) -->\n\n`);
-      }
-    }
+  const stitchedChapters: StitchedChapter[] = [];
+  let totalWords = 0;
+  let totalScenes = 0;
+
+  for (let chapterIndex = 0; chapterIndex < data.chapters.length; chapterIndex++) {
+    const ch = data.chapters[chapterIndex];
+    const scenes = await collectStitchedScenes(ch.sceneUris);
+    stitchedChapters.push({
+      index: chapterIndex,
+      heading: chapterHeading(ch.title, chapterIndex),
+      scenes,
+    });
+    totalScenes += scenes.length;
+    totalWords += scenes.reduce((sum, s) => sum + s.wordCount, 0);
   }
-  return parts.join('').trimEnd();
+
+  const title = data.title?.trim() || 'Untitled Manuscript';
+  const parts: string[] = [renderStitchedHeader(title, stitchedChapters.length, totalScenes, totalWords)];
+
+  parts.push('## Contents', '');
+  for (const chapter of stitchedChapters) {
+    parts.push(`- ${chapter.index + 1}. ${chapter.heading} (${formatSceneCount(chapter.scenes.length)})`);
+  }
+  parts.push('', '---', '');
+
+  for (const chapter of stitchedChapters) {
+    parts.push(renderChapterBlock(chapter));
+  }
+  return parts.join('\n').trimEnd();
 }
 
 /**
@@ -162,20 +280,18 @@ export async function buildStitchedChapterContent(chapterIndex: number): Promise
   if (!data || data.chapters.length === 0) return 'No manuscript. Add a noveltools.yaml or scenes.';
   const ch = data.chapters[chapterIndex];
   if (!ch) return `Chapter ${chapterIndex + 1} not found.`;
-  const parts: string[] = [];
-  if (ch.title) {
-    parts.push(`## ${ch.title}\n\n`);
-  } else {
-    parts.push(`## Chapter ${chapterIndex + 1}\n\n`);
-  }
-  for (const uri of ch.sceneUris) {
-    try {
-      const doc = await vscode.workspace.openTextDocument(uri);
-      parts.push(doc.getText());
-      parts.push('\n\n');
-    } catch {
-      parts.push(`<!-- ${uri.fsPath} (unreadable) -->\n\n`);
-    }
-  }
-  return parts.join('').trimEnd();
+  const heading = chapterHeading(ch.title, chapterIndex);
+  const scenes = await collectStitchedScenes(ch.sceneUris);
+  const totalWords = scenes.reduce((sum, s) => sum + s.wordCount, 0);
+  const chapterData: StitchedChapter = {
+    index: chapterIndex,
+    heading,
+    scenes,
+  };
+  return [
+    renderStitchedHeader(heading, 1, scenes.length, totalWords),
+    '---',
+    '',
+    renderChapterBlock(chapterData),
+  ].join('\n').trimEnd();
 }

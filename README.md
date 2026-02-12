@@ -73,6 +73,7 @@ Paths are relative to the directory containing `index.yaml`. Reordering in the s
 - **NovelTools: Move Chapter Up** / **Move Chapter Down**
 - **NovelTools: Open Stitched Manuscript** – open a virtual document with all scenes concatenated (with chapter headings).
 - **NovelTools: Open Stitched Chapter** – open a virtual document with one chapter’s scenes stitched (right‑click a chapter in the Manuscript view, or run from the Command Palette and pick a chapter).
+- **NovelTools: Open Stitched Selection** – shift-click one or more scenes in the Manuscript sidebar and stitch only that selection (always ordered by project YAML).
 - **NovelTools: Set Chapter as Context** – write the stitched chapter to a file (e.g. `.cursor/noveltools-chapter-context.md`) and open it so you can @-mention it in Cursor chat or reference it in a rule for agent review.
 - **NovelTools: Refresh Manuscript View** – reload the project YAML in the sidebar.
 - **NovelTools: Build Project YAML** – create or update `noveltools.yaml` from the current manuscript outline (from the project file if present, otherwise from `noveltools.sceneFiles` or `noveltools.sceneGlob`). Use this when you don’t have a project file yet; after creating it, drag-and-drop in the sidebar will update the YAML.

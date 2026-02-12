@@ -4,8 +4,6 @@ import { getProjectFile, getSceneFiles, getSceneGlob, getChapterGrouping, getInd
 import { parseProjectYaml, parseIndexYaml, parseLongformIndexYaml, parseLongformStrict, resolveChapterFolders, type ManuscriptData, type ChapterData } from './projectYaml';
 
 const INDEX_YAML = 'index.yaml';
-/** Additional index filenames to try when glob finds nothing (e.g. Index.YAML, Index.md). */
-const INDEX_CANDIDATES = ['index.yaml', 'Index.yaml', 'Index.YAML', 'Index.md', 'index.md'];
 const ACTIVE_PROJECT_URI_KEY = 'noveltools.activeProjectUri';
 
 let extensionContext: vscode.ExtensionContext | null = null;
@@ -110,11 +108,20 @@ const FALLBACK_INDEX_GLOBS = [
 export async function findAllIndexYaml(): Promise<vscode.Uri[]> {
   // #region agent log
   const glob = getIndexYamlGlob();
-  let found = await vscode.workspace.findFiles(glob);
+  let found: vscode.Uri[] = [];
+  try {
+    found = await vscode.workspace.findFiles(glob);
+  } catch {
+    found = [];
+  }
   if (found.length === 0) {
     for (const fallback of FALLBACK_INDEX_GLOBS) {
-      const extra = await vscode.workspace.findFiles(fallback);
-      found = [...found, ...extra];
+      try {
+        const extra = await vscode.workspace.findFiles(fallback);
+        found = [...found, ...extra];
+      } catch {
+        // continue
+      }
     }
   }
   const unique = Array.from(new Map(found.map((u) => [u.fsPath, u])).values());
@@ -124,26 +131,7 @@ export async function findAllIndexYaml(): Promise<vscode.Uri[]> {
   // #endregion
 }
 
-async function findIndexYaml(): Promise<vscode.Uri | null> {
-  const folders = vscode.workspace.workspaceFolders;
-  if (!folders?.length) return null;
-  for (const folder of folders) {
-    for (const name of INDEX_CANDIDATES) {
-      const candidate = vscode.Uri.joinPath(folder.uri, name);
-      try {
-        await vscode.workspace.fs.readFile(candidate);
-        return candidate;
-      } catch {
-        // continue
-      }
-    }
-  }
-  return null;
-}
-
 async function findProjectFile(): Promise<vscode.Uri | null> {
-  const indexUri = await findIndexYaml();
-  if (indexUri) return indexUri;
   const name = getProjectFile();
   const folders = vscode.workspace.workspaceFolders;
   if (!folders?.length) return null;
@@ -274,16 +262,18 @@ export async function getManuscript(projectFileUri?: vscode.Uri): Promise<Manusc
   // #region agent log
   fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'sceneList.ts:getManuscript',message:'Resolution branch',data:{allIndexCount:allIndex.length,allIndexPaths:allIndex.map(u=>vscode.workspace.asRelativePath(u))},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
   // #endregion
-  if (allIndex.length > 1) {
+  if (allIndex.length > 0) {
     const activeUri = await getActiveProjectUri();
-    const uri = activeUri && allIndex.some((u) => u.toString() === activeUri.toString())
-      ? activeUri
-      : allIndex[0];
-    return getManuscriptByUri(uri);
-  }
-
-  if (allIndex.length === 1) {
-    return getManuscriptByUri(allIndex[0]);
+    const prioritized = activeUri
+      ? [
+          ...allIndex.filter((u) => u.toString() === activeUri.toString()),
+          ...allIndex.filter((u) => u.toString() !== activeUri.toString()),
+        ]
+      : allIndex;
+    for (const uri of prioritized) {
+      const result = await getManuscriptByUri(uri);
+      if (result.data) return result;
+    }
   }
 
   const singleUri = await findProjectFile();

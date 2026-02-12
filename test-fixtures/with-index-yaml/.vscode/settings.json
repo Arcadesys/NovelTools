@@ -1,0 +1,4 @@
+{
+    "noveltools.indexYamlGlob": "**/*[iI]ndex*.{yaml,yml,YAML,YML,md,MD}",
+    "noveltools.projectFile": "noveltools.yaml"
+}
