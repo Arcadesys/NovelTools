@@ -38,6 +38,7 @@ const COMMAND_WHITELIST = new Set([
   'noveltools.openSettings',
   'noveltools.selectDocument',
   'noveltools.convertLongformToProjectYaml',
+  'noveltools.openSceneOutline',
 ]);
 
 interface SceneCardModel {
@@ -652,6 +653,7 @@ function renderHtml(webview: vscode.Webview, nonce: string, model: SceneCardsMod
       <button class="action-btn" data-action="command" data-command="noveltools.refreshManuscript">Refresh</button>
       <button class="action-btn" data-action="command" data-command="${buildOrOpenCommand}">${buildOrOpenLabel}</button>
       <button class="action-btn" data-action="command" data-command="noveltools.openStitchedManuscript">Open Stitched</button>
+      <button class="action-btn" data-action="command" data-command="noveltools.openSceneOutline">Scene outline</button>
       <button class="action-btn" data-action="command" data-command="noveltools.showQuickStart">Quick Start</button>
       ${documentButton}
     </div>
