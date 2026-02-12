@@ -3,7 +3,7 @@
   "publisher": "arcades-ltd",
   "displayName": "NovelTools",
   "description": "Long-form writing: scene stitching, manuscript sidebar, word counts",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/Arcadesys/NovelTools.git"
@@ -253,7 +253,7 @@
     "viewsWelcome": [
       {
         "view": "noveltools.manuscriptTree",
-        "contents": "# Welcome to NovelTools\n\nVersion: **v1.1.0**\n\nThe **scene outline** (chapters and scenes) opens in the **editor** area, not here.\n\n- $(list-tree) [Open Scene Outline](command:noveltools.openSceneOutline) — opens the outline in an editor tab\n- $(book) [Open Stitched Manuscript](command:noveltools.openStitchedManuscript)\n- $(go-to-file) [Open Project YAML](command:noveltools.openProjectYaml)\n- $(new-file) [Build Project YAML](command:noveltools.buildProjectYaml)\n- $(file-symlink-file) [Convert Longform to Project YAML](command:noveltools.convertLongformToProjectYaml)\n\nIn the outline you can expand/collapse chapters, click scenes to open them, and use the toolbar for Refresh, Open Project YAML, and Open Stitched.\n\n[Quick Start Guide](command:noveltools.showQuickStart) | [Settings](command:noveltools.openSettings)"
+        "contents": "# Welcome to NovelTools\n\nVersion: **v1.1.1**\n\nThe **scene outline** (chapters and scenes) opens in the **editor** area, not here.\n\n- $(list-tree) [Open Scene Outline](command:noveltools.openSceneOutline) — opens the outline in an editor tab\n- $(book) [Open Stitched Manuscript](command:noveltools.openStitchedManuscript)\n- $(go-to-file) [Open Project YAML](command:noveltools.openProjectYaml)\n- $(new-file) [Build Project YAML](command:noveltools.buildProjectYaml)\n- $(file-symlink-file) [Convert Longform to Project YAML](command:noveltools.convertLongformToProjectYaml)\n\nIn the outline you can expand/collapse chapters, click scenes to open them, and use the toolbar for Refresh, Open Project YAML, and Open Stitched.\n\n[Quick Start Guide](command:noveltools.showQuickStart) | [Settings](command:noveltools.openSettings)"
       }
     ],
     "menus": {
