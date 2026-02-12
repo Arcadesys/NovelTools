@@ -3,7 +3,7 @@
   "publisher": "arcades-ltd",
   "displayName": "NovelTools",
   "description": "Long-form writing: scene stitching, manuscript sidebar, word counts",
-  "version": "1.0.7",
+  "version": "1.1.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/Arcadesys/NovelTools.git"
@@ -248,7 +248,7 @@
     "viewsWelcome": [
       {
         "view": "noveltools.manuscript",
-        "contents": "# Welcome to NovelTools\n\nVersion: **v1.0.7**\n\nWrite without tech friction:\n\n- $(book) [Open Stitched Manuscript](command:noveltools.openStitchedManuscript)\n- $(go-to-file) [Open Project YAML](command:noveltools.openProjectYaml)\n- $(new-file) [Build Project YAML](command:noveltools.buildProjectYaml)\n- $(file-symlink-file) [Convert Longform to Project YAML](command:noveltools.convertLongformToProjectYaml)\n\nWhat you'll see here:\n\n- A **story-first Manuscript tree** with chapters and scenes.\n- **Drag to reorder** and NovelTools updates your YAML automatically.\n- **Section status markers** to track done, drafted, and spiked scenes.\n\nTip: right-click a chapter to open a stitched chapter preview.\n\n[Quick Start Guide](command:noveltools.showQuickStart) | [Settings](command:noveltools.openSettings)"
+        "contents": "# Welcome to NovelTools\n\nVersion: **v1.1.0**\n\nWrite without tech friction:\n\n- $(book) [Open Stitched Manuscript](command:noveltools.openStitchedManuscript)\n- $(go-to-file) [Open Project YAML](command:noveltools.openProjectYaml)\n- $(new-file) [Build Project YAML](command:noveltools.buildProjectYaml)\n- $(file-symlink-file) [Convert Longform to Project YAML](command:noveltools.convertLongformToProjectYaml)\n\nWhat you'll see here:\n\n- A **story-first Manuscript tree** with chapters and scenes.\n- **Drag to reorder** and NovelTools updates your YAML automatically.\n- **Section status markers** to track done, drafted, and spiked scenes.\n\nTip: right-click a chapter to open a stitched chapter preview.\n\n[Quick Start Guide](command:noveltools.showQuickStart) | [Settings](command:noveltools.openSettings)"
       }
     ],
     "menus": {
