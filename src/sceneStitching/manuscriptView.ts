@@ -163,7 +163,6 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('noveltools.refreshManuscript', async () => {
       clearManuscriptCache();
       treeDataProvider.refresh();
-      await vscode.commands.executeCommand('noveltools.refreshSceneCards');
     })
   );
 
@@ -795,7 +794,6 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       if (picked) {
         await setActiveProjectUri(picked.uri);
         treeDataProvider.refresh();
-        await vscode.commands.executeCommand('noveltools.refreshSceneCards');
       }
     })
   );

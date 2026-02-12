@@ -228,11 +228,6 @@
         "icon": "$(file-directory)"
       },
       {
-        "command": "noveltools.refreshSceneCards",
-        "title": "NovelTools: Refresh Scene Cards",
-        "icon": "$(refresh)"
-      },
-      {
         "command": "noveltools.openSceneOutline",
         "title": "NovelTools: Open Scene Outline",
         "icon": "$(list-tree)"
@@ -250,11 +245,6 @@
     "views": {
       "noveltools": [
         {
-          "id": "noveltools.manuscript",
-          "name": "Manuscript",
-          "type": "webview"
-        },
-        {
           "id": "noveltools.manuscriptTree",
           "name": "Manuscript Tree (Legacy)"
         }
@@ -268,46 +258,6 @@
     ],
     "menus": {
       "view/title": [
-        {
-          "command": "noveltools.selectDocument",
-          "when": "view == noveltools.manuscript && noveltools.hasMultipleDocuments",
-          "group": "navigation@1"
-        },
-        {
-          "command": "noveltools.showQuickStart",
-          "when": "view == noveltools.manuscript",
-          "group": "navigation@1"
-        },
-        {
-          "command": "noveltools.openProjectYaml",
-          "when": "view == noveltools.manuscript && noveltools.hasProjectFile",
-          "group": "navigation@2"
-        },
-        {
-          "command": "noveltools.buildProjectYaml",
-          "when": "view == noveltools.manuscript && !noveltools.hasProjectFile",
-          "group": "navigation@2"
-        },
-        {
-          "command": "noveltools.convertLongformToProjectYaml",
-          "when": "view == noveltools.manuscript",
-          "group": "navigation@2"
-        },
-        {
-          "command": "noveltools.openStitchedManuscript",
-          "when": "view == noveltools.manuscript && noveltools.hasScenes",
-          "group": "navigation@3"
-        },
-        {
-          "command": "noveltools.openSceneOutline",
-          "when": "view == noveltools.manuscript",
-          "group": "navigation@3"
-        },
-        {
-          "command": "noveltools.refreshManuscript",
-          "when": "view == noveltools.manuscript",
-          "group": "navigation@4"
-        },
         {
           "command": "noveltools.openProjectYaml",
           "when": "view == noveltools.manuscriptTree",

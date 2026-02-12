@@ -6,7 +6,6 @@ import { registerMoveScene } from './sceneStitching/moveScene';
 import { registerAddScene } from './sceneStitching/addScene';
 import { registerStitchedProvider } from './sceneStitching/stitchedProvider';
 import { registerManuscriptView } from './sceneStitching/manuscriptView';
-import { registerSceneCardsView } from './sceneStitching/sceneCardsView';
 import { registerSceneOutlineEditor } from './sceneStitching/sceneOutlineEditor';
 import { initSceneList } from './sceneStitching/sceneList';
 
@@ -23,7 +22,6 @@ function safeRegister(name: string, fn: () => void): void {
 export function activate(context: vscode.ExtensionContext): void {
   initSceneList(context);
   safeRegister('Manuscript View', () => registerManuscriptView(context));
-  safeRegister('Scene Cards View', () => registerSceneCardsView(context));
   safeRegister('Scene Outline Editor', () => registerSceneOutlineEditor(context));
   safeRegister('Stitched Provider', () => registerStitchedProvider(context));
   safeRegister('Navigation', () => registerNavigation(context));
