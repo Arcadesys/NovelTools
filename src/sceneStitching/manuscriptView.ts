@@ -297,35 +297,39 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       // #region agent log
       fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:openProjectYaml',message:'Checking workspace folders',data:{hasFolders:!!folders?.length,folderCount:folders?.length ?? 0},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
       // #endregion
-      if (!folders?.length) {
-        await vscode.window.showInformationMessage('Open a workspace folder first.');
-        return;
-      }
 
-      // Show file picker to let user select a project YAML file
-      // Always use workspace root as defaultUri to ensure file picker always shows
-      const defaultUri = folders[0].uri;
+      // Show file picker to let user select a project YAML file.
+      // Only pass defaultUri for local (file:) workspaces so the native dialog can open;
+      // remote schemes or no folder can prevent the picker from showing on some platforms.
+      const firstFolder = folders?.[0];
+      const defaultUri =
+        firstFolder?.uri.scheme === 'file'
+          ? vscode.Uri.file(firstFolder.uri.fsPath)
+          : undefined;
       // #region agent log
-      console.log('[NovelTools] Before showOpenDialog, workspaceRoot:', defaultUri.fsPath);
-      fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:openProjectYaml',message:'Before showOpenDialog',data:{defaultUri:defaultUri.fsPath,workspaceRoot:folders[0].uri.fsPath,projectFileConfig:getProjectFile()},timestamp:Date.now(),hypothesisId:'H3,H5'})}).catch(()=>{});
+      console.log('[NovelTools] Before showOpenDialog, defaultUri:', defaultUri?.fsPath ?? 'undefined');
+      fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:openProjectYaml',message:'Before showOpenDialog',data:{defaultUri:defaultUri?.fsPath,workspaceRoot:firstFolder?.uri.fsPath,projectFileConfig:getProjectFile()},timestamp:Date.now(),hypothesisId:'H3,H5'})}).catch(()=>{});
       // #endregion
       
       // #region agent log
       console.log('[NovelTools] Calling showOpenDialog');
       fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:openProjectYaml',message:'Calling showOpenDialog',data:{},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
       // #endregion
-      const selectedUri = await vscode.window.showOpenDialog({
+      const dialogOptions: vscode.OpenDialogOptions = {
         canSelectFiles: true,
         canSelectFolders: false,
         canSelectMany: false,
-        defaultUri: defaultUri,
         openLabel: 'Open Project YAML',
         filters: {
           'YAML files': ['yaml', 'yml', 'YAML', 'YML'],
           'All files': ['*']
         },
-        title: 'Select Project YAML File'
-      });
+        title: 'Select Project YAML File (e.g. noveltools.yaml)'
+      };
+      if (defaultUri !== undefined) {
+        dialogOptions.defaultUri = defaultUri;
+      }
+      const selectedUri = await vscode.window.showOpenDialog(dialogOptions);
 
       // #region agent log
       console.log('[NovelTools] After showOpenDialog, selectedUri:', selectedUri?.map(u => u.fsPath), 'length:', selectedUri?.length);
