@@ -49,7 +49,8 @@ interface RawManuscript {
   sceneStatus?: Record<string, string>;
 }
 
-const INDEX_FRONTMATTER_REGEX = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/;
+// Accept optional UTF-8 BOM and frontmatter that may end at EOF (no trailing newline/body).
+const INDEX_FRONTMATTER_REGEX = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n([\s\S]*))?$/;
 
 /**
  * Parse index.yaml: optional YAML frontmatter (--- ... ---) for manuscript title,
@@ -75,7 +76,7 @@ export function parseIndexYaml(
         }
         if (Object.keys(sceneStatus).length === 0) sceneStatus = undefined;
       }
-      body = match[2].trim();
+      body = (match[2] ?? '').trim();
     }
     const scenePathsRaw = body ? (parseYaml(body) as unknown) : [];
     const scenePaths = Array.isArray(scenePathsRaw)

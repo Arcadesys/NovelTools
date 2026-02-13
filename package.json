@@ -3,7 +3,7 @@
   "publisher": "arcades-ltd",
   "displayName": "NovelTools",
   "description": "Long-form writing: scene stitching, manuscript sidebar, word counts",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "repository": {
     "type": "git",
     "url": "https://github.com/Arcadesys/NovelTools.git"
@@ -19,6 +19,19 @@
     "Other"
   ],
   "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished",
+    "onView:noveltools.manuscript",
+    "onView:noveltools.sceneCards",
+    "onCommand:noveltools.openSidebar",
+    "onCommand:noveltools.openSceneOutline",
+    "onCommand:noveltools.openStitchedManuscript",
+    "onCommand:noveltools.openProjectYaml",
+    "onCommand:noveltools.buildProjectYaml",
+    "onCommand:noveltools.convertLongformToProjectYaml",
+    "onCommand:noveltools.showQuickStart",
+    "onCommand:noveltools.openSettings"
+  ],
   "contributes": {
     "configuration": {
       "title": "NovelTools",
@@ -136,6 +149,10 @@
         "icon": "$(add)"
       },
       {
+        "command": "noveltools.renameScene",
+        "title": "NovelTools: Rename Scene File…"
+      },
+      {
         "command": "noveltools.removeScene",
         "title": "NovelTools: Remove Scene from Manuscript",
         "icon": "$(trash)"
@@ -231,6 +248,11 @@
         "command": "noveltools.openSceneOutline",
         "title": "NovelTools: Open Scene Outline",
         "icon": "$(list-tree)"
+      },
+      {
+        "command": "noveltools.openSidebar",
+        "title": "NovelTools: Focus Sidebar",
+        "icon": "$(list-tree)"
       }
     ],
     "viewsContainers": {
@@ -245,124 +267,133 @@
     "views": {
       "noveltools": [
         {
-          "id": "noveltools.manuscriptTree",
-          "name": "Manuscript Tree (Legacy)"
+          "id": "noveltools.manuscript",
+          "name": "Manuscript"
+        },
+        {
+          "id": "noveltools.sceneCards",
+          "name": "Scene Cards"
         }
       ]
     },
     "viewsWelcome": [
       {
-        "view": "noveltools.manuscriptTree",
-        "contents": "# Welcome to NovelTools\n\nVersion: **v1.1.1**\n\nThe **scene outline** (chapters and scenes) opens in the **editor** area, not here.\n\n- $(list-tree) [Open Scene Outline](command:noveltools.openSceneOutline) — opens the outline in an editor tab\n- $(book) [Open Stitched Manuscript](command:noveltools.openStitchedManuscript)\n- $(go-to-file) [Open Project YAML](command:noveltools.openProjectYaml)\n- $(new-file) [Build Project YAML](command:noveltools.buildProjectYaml)\n- $(file-symlink-file) [Convert Longform to Project YAML](command:noveltools.convertLongformToProjectYaml)\n\nIn the outline you can expand/collapse chapters, click scenes to open them, and use the toolbar for Refresh, Open Project YAML, and Open Stitched.\n\n[Quick Start Guide](command:noveltools.showQuickStart) | [Settings](command:noveltools.openSettings)"
+        "view": "noveltools.manuscript",
+        "contents": "# Welcome to NovelTools\n\nVersion: **v1.1.2**\n\nThe **scene outline** (chapters and scenes) opens in the **editor** area, not here.\n\n- $(list-tree) [Open Scene Outline](command:noveltools.openSceneOutline) — opens the outline in an editor tab\n- $(book) [Open Stitched Manuscript](command:noveltools.openStitchedManuscript)\n- $(go-to-file) [Open Project YAML](command:noveltools.openProjectYaml)\n- $(new-file) [Build Project YAML](command:noveltools.buildProjectYaml)\n- $(file-symlink-file) [Convert Longform to Project YAML](command:noveltools.convertLongformToProjectYaml)\n\nIn the outline you can expand/collapse chapters, click scenes to open them, and use the toolbar for Refresh, Open Project YAML, and Open Stitched.\n\n[Quick Start Guide](command:noveltools.showQuickStart) | [Settings](command:noveltools.openSettings)"
       }
     ],
     "menus": {
       "view/title": [
         {
           "command": "noveltools.openProjectYaml",
-          "when": "view == noveltools.manuscriptTree",
+          "when": "view == noveltools.manuscript",
           "group": "navigation@1"
         },
         {
           "command": "noveltools.openStitchedManuscript",
-          "when": "view == noveltools.manuscriptTree && noveltools.hasScenes",
+          "when": "view == noveltools.manuscript && noveltools.hasScenes",
           "group": "navigation@2"
         },
         {
           "command": "noveltools.openStitchedSelection",
-          "when": "view == noveltools.manuscriptTree && noveltools.hasScenes",
+          "when": "view == noveltools.manuscript && noveltools.hasScenes",
           "group": "navigation@3"
         },
         {
           "command": "noveltools.refreshManuscript",
-          "when": "view == noveltools.manuscriptTree",
+          "when": "view == noveltools.manuscript",
           "group": "navigation@3"
         }
       ],
       "view/item/context": [
         {
           "command": "noveltools.moveChapterUp",
-          "when": "view == noveltools.manuscriptTree && viewItem == chapter",
+          "when": "view == noveltools.manuscript && viewItem == chapter",
           "group": "navigation"
         },
         {
           "command": "noveltools.moveChapterDown",
-          "when": "view == noveltools.manuscriptTree && viewItem == chapter",
+          "when": "view == noveltools.manuscript && viewItem == chapter",
           "group": "navigation"
         },
         {
           "command": "noveltools.renameChapter",
-          "when": "view == noveltools.manuscriptTree && viewItem == chapter",
+          "when": "view == noveltools.manuscript && viewItem == chapter",
           "group": "navigation"
         },
         {
           "command": "noveltools.openStitchedChapter",
-          "when": "view == noveltools.manuscriptTree && viewItem == chapter",
+          "when": "view == noveltools.manuscript && viewItem == chapter",
           "group": "navigation"
         },
         {
           "command": "noveltools.setChapterAsContext",
-          "when": "view == noveltools.manuscriptTree && viewItem == chapter",
+          "when": "view == noveltools.manuscript && viewItem == chapter",
           "group": "navigation"
         },
         {
           "command": "noveltools.setSectionStatusDone",
-          "when": "view == noveltools.manuscriptTree && viewItem == scene",
+          "when": "view == noveltools.manuscript && viewItem == scene",
           "group": "status@0"
         },
         {
           "command": "noveltools.setSectionStatusDrafted",
-          "when": "view == noveltools.manuscriptTree && viewItem == scene",
+          "when": "view == noveltools.manuscript && viewItem == scene",
           "group": "status@0"
         },
         {
           "command": "noveltools.setSectionStatusSpiked",
-          "when": "view == noveltools.manuscriptTree && viewItem == scene",
+          "when": "view == noveltools.manuscript && viewItem == scene",
           "group": "status@0"
         },
         {
           "command": "noveltools.clearSectionStatus",
-          "when": "view == noveltools.manuscriptTree && viewItem == scene",
+          "when": "view == noveltools.manuscript && viewItem == scene",
           "group": "status@0"
         },
         {
           "command": "noveltools.addSceneAbove",
-          "when": "view == noveltools.manuscriptTree && viewItem == scene",
+          "when": "view == noveltools.manuscript && viewItem == scene",
           "group": "inline@0"
         },
         {
           "command": "noveltools.addSceneBelow",
-          "when": "view == noveltools.manuscriptTree && viewItem == scene",
+          "when": "view == noveltools.manuscript && viewItem == scene",
           "group": "inline@0"
         },
         {
           "command": "noveltools.moveSceneUp",
-          "when": "view == noveltools.manuscriptTree && viewItem == scene",
+          "when": "view == noveltools.manuscript && viewItem == scene",
           "group": "navigation@1"
         },
         {
           "command": "noveltools.moveSceneDown",
-          "when": "view == noveltools.manuscriptTree && viewItem == scene",
+          "when": "view == noveltools.manuscript && viewItem == scene",
           "group": "navigation@1"
         },
         {
           "command": "noveltools.openStitchedSelection",
-          "when": "view == noveltools.manuscriptTree && viewItem == scene",
+          "when": "view == noveltools.manuscript && viewItem == scene",
+          "group": "navigation@1"
+        },
+        {
+          "command": "noveltools.renameScene",
+          "when": "view == noveltools.manuscript && viewItem == scene",
           "group": "navigation@1"
         },
         {
           "command": "noveltools.removeScene",
-          "when": "view == noveltools.manuscriptTree && viewItem == scene",
+          "when": "view == noveltools.manuscript && viewItem == scene",
           "group": "navigation@1"
         },
         {
           "command": "noveltools.deleteScene",
-          "when": "view == noveltools.manuscriptTree && viewItem == scene",
+          "when": "view == noveltools.manuscript && viewItem == scene",
           "group": "navigation@1"
         },
         {
           "command": "noveltools.removeChapter",
-          "when": "view == noveltools.manuscriptTree && viewItem == chapter",
+          "when": "view == noveltools.manuscript && viewItem == chapter",
           "group": "navigation"
         }
       ]
@@ -373,7 +404,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "dev": "npm run compile",
-    "package": "npm run compile && npx vsce package --no-dependencies",
+    "package": "npm run compile && npx vsce package",
     "test": "npm run compile && node ./out/test/runTest.js"
   },
   "devDependencies": {

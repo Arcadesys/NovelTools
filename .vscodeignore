@@ -5,7 +5,6 @@ src/**
 test-fixtures/**
 out/test/**
 tsconfig.json
-node_modules/**
 .gitignore
 *.md
 !README.md

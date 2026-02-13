@@ -20,7 +20,7 @@ import {
 import { buildProjectYamlToFile, writeProjectYaml } from './projectFile';
 import type { ManuscriptData, SceneStatus } from './projectYaml';
 
-const VIEW_ID = 'noveltools.manuscriptTree';
+const VIEW_ID = 'noveltools.manuscript';
 const MIME_TREE = `application/vnd.code.tree.${VIEW_ID}`;
 const QUICK_START_FALLBACK = `# NovelTools Quick Start
 
@@ -138,6 +138,36 @@ function getTreeItemLabel(node: TreeNode): string {
   }
 }
 
+function isCaseOnlyFileRename(fromUri: vscode.Uri, toUri: vscode.Uri): boolean {
+  return (
+    fromUri.scheme === 'file' &&
+    toUri.scheme === 'file' &&
+    fromUri.fsPath !== toUri.fsPath &&
+    fromUri.fsPath.toLowerCase() === toUri.fsPath.toLowerCase()
+  );
+}
+
+async function renameFileOnDisk(fromUri: vscode.Uri, toUri: vscode.Uri): Promise<void> {
+  if (fromUri.toString() === toUri.toString()) return;
+  if (!isCaseOnlyFileRename(fromUri, toUri)) {
+    await vscode.workspace.fs.rename(fromUri, toUri, { overwrite: false });
+    return;
+  }
+  const tempName = `.noveltools-rename-${Date.now()}-${Math.random().toString(36).slice(2)}${path.extname(toUri.fsPath)}`;
+  const tempUri = vscode.Uri.joinPath(fromUri, '..', tempName);
+  await vscode.workspace.fs.rename(fromUri, tempUri, { overwrite: false });
+  try {
+    await vscode.workspace.fs.rename(tempUri, toUri, { overwrite: false });
+  } catch (err) {
+    try {
+      await vscode.workspace.fs.rename(tempUri, fromUri, { overwrite: false });
+    } catch {
+      // Best-effort rollback only.
+    }
+    throw err;
+  }
+}
+
 export function registerManuscriptView(context: vscode.ExtensionContext): void {
   const treeDataProvider = new ManuscriptTreeDataProvider(context);
   const treeView = vscode.window.createTreeView(VIEW_ID, {
@@ -163,6 +193,18 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('noveltools.refreshManuscript', async () => {
       clearManuscriptCache();
       treeDataProvider.refresh();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('noveltools.openSidebar', async () => {
+      await vscode.commands.executeCommand('workbench.view.extension.noveltools');
+      await vscode.commands.executeCommand('workbench.action.focusSideBar');
+      try {
+        await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
+      } catch {
+        // Older hosts might not expose per-view focus commands.
+      }
     })
   );
 
@@ -337,7 +379,24 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       // #endregion
 
       if (selectedUri && selectedUri.length > 0) {
-        await openAndFocus(selectedUri[0]);
+        const uri = selectedUri[0];
+        try {
+          const bytes = await vscode.workspace.fs.readFile(uri);
+          const text = new TextDecoder('utf8').decode(bytes);
+          const firstThree = text.split(/\r?\n/).slice(0, 3);
+          const preview =
+            firstThree.length > 0
+              ? firstThree.join('\n').trimEnd()
+              : '(empty file)';
+          await vscode.window.showInformationMessage(
+            'Preview — first 3 lines',
+            { modal: true, detail: preview },
+            'OK'
+          );
+        } catch {
+          // If we can't read (e.g. remote file), skip preview and open
+        }
+        await openAndFocus(uri);
         return;
       }
 
@@ -530,6 +589,132 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('noveltools.renameScene', async (nodeOrItem?: TreeNode | vscode.TreeItem) => {
+      const selection = await resolveSceneSelection(nodeOrItem);
+      if (!selection) {
+        await vscode.window.showInformationMessage('Select a scene in the Manuscript view to rename it.');
+        return;
+      }
+
+      const currentName = path.basename(selection.uri.fsPath);
+      const currentExt = path.extname(currentName);
+      const rawName = await vscode.window.showInputBox({
+        title: 'Rename Scene File',
+        value: currentName,
+        prompt: 'Enter a new filename for this scene.',
+        validateInput: (value) => {
+          const name = value.trim();
+          if (!name) return 'Filename cannot be empty.';
+          if (name === '.' || name === '..') return 'Enter a valid filename.';
+          if (/[\\/]/.test(name)) return 'Enter a filename only (no path).';
+          if (/[<>:"|?*]/.test(name)) return 'Filename contains invalid characters.';
+          return undefined;
+        },
+      });
+      if (rawName === undefined) return;
+
+      const entered = rawName.trim();
+      const nextName = path.extname(entered) ? entered : `${entered}${currentExt || ''}`;
+      if (nextName === currentName) return;
+
+      const oldUri = selection.uri;
+      const newUri = vscode.Uri.joinPath(oldUri, '..', nextName);
+      const sameTarget = oldUri.toString() === newUri.toString();
+      if (sameTarget) return;
+
+      try {
+        await vscode.workspace.fs.stat(newUri);
+        if (!isCaseOnlyFileRename(oldUri, newUri)) {
+          await vscode.window.showErrorMessage(`A file named "${nextName}" already exists in this folder.`);
+          return;
+        }
+      } catch {
+        // Target path does not exist.
+      }
+
+      try {
+        await renameFileOnDisk(oldUri, newUri);
+      } catch (err) {
+        await vscode.window.showErrorMessage(
+          `Could not rename scene file: ${err instanceof Error ? err.message : String(err)}`
+        );
+        return;
+      }
+
+      const data = selection.data;
+      if (data.projectFileUri) {
+        const chapters = data.chapters.map((ch) => ({
+          ...ch,
+          sceneUris: [...ch.sceneUris],
+          scenePaths: [...ch.scenePaths],
+        }));
+        const chapter = chapters[selection.chapterIndex];
+        if (!chapter || selection.sceneIndex < 0 || selection.sceneIndex >= chapter.sceneUris.length) {
+          await vscode.window.showWarningMessage('Renamed file, but could not update manuscript metadata. Refresh the view.');
+          clearManuscriptCache(data.projectFileUri);
+          treeDataProvider.refresh();
+          return;
+        }
+
+        const oldScenePath = (
+          chapter.scenePaths[selection.sceneIndex] ??
+          path.relative(path.dirname(data.projectFileUri.fsPath), oldUri.fsPath)
+        )
+          .split(path.sep)
+          .join('/');
+        const newScenePath = path
+          .relative(path.dirname(data.projectFileUri.fsPath), newUri.fsPath)
+          .split(path.sep)
+          .join('/');
+
+        chapter.sceneUris[selection.sceneIndex] = newUri;
+        chapter.scenePaths[selection.sceneIndex] = newScenePath;
+
+        let sceneStatus = data.sceneStatus;
+        if (sceneStatus && oldScenePath in sceneStatus) {
+          const nextStatus = { ...sceneStatus };
+          nextStatus[newScenePath] = nextStatus[oldScenePath];
+          if (oldScenePath !== newScenePath) delete nextStatus[oldScenePath];
+          sceneStatus = Object.keys(nextStatus).length > 0 ? nextStatus : undefined;
+        }
+
+        const updated: ManuscriptData = {
+          ...data,
+          chapters,
+          flatUris: chapters.flatMap((ch) => ch.sceneUris),
+          sceneStatus,
+        };
+
+        try {
+          await writeProjectYaml(data.projectFileUri, updated);
+        } catch (err) {
+          try {
+            await renameFileOnDisk(newUri, oldUri);
+          } catch (rollbackErr) {
+            await vscode.window.showErrorMessage(
+              `Scene file was renamed, but project YAML update failed and rollback also failed: ${rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr)}`
+            );
+            clearManuscriptCache(data.projectFileUri);
+            treeDataProvider.refresh();
+            return;
+          }
+          await vscode.window.showErrorMessage(
+            `Could not update project YAML after renaming. The file rename was reverted: ${err instanceof Error ? err.message : String(err)}`
+          );
+          clearManuscriptCache(data.projectFileUri);
+          treeDataProvider.refresh();
+          return;
+        }
+        clearManuscriptCache(data.projectFileUri);
+      } else {
+        clearManuscriptCache();
+      }
+
+      treeDataProvider.refresh();
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('noveltools.removeScene', async (nodeOrItem?: TreeNode | vscode.TreeItem) => {
       let selection = (nodeOrItem ?? treeView.selection[0]) as TreeNode | undefined;
       if (selection?.type !== 'scene') {
@@ -683,12 +868,16 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
     const uri = item && typeof item === 'object' && 'resourceUri' in item ? (item as vscode.TreeItem).resourceUri : undefined;
     if (!uri || !item || typeof item !== 'object' || (item as vscode.TreeItem).contextValue !== 'scene') return undefined;
     const result = await getManuscript();
-    if (!result.data?.projectFileUri) return undefined;
+    if (!result.data) return undefined;
     for (let ci = 0; ci < result.data.chapters.length; ci++) {
       const ch = result.data.chapters[ci];
       const si = ch.sceneUris.findIndex((u) => u.toString() === uri.toString());
       if (si >= 0) {
-        const scenePath = ch.scenePaths[si] ?? path.relative(path.dirname(result.data.projectFileUri.fsPath), uri.fsPath);
+        const scenePath = ch.scenePaths[si] ?? (
+          result.data.projectFileUri
+            ? path.relative(path.dirname(result.data.projectFileUri.fsPath), uri.fsPath)
+            : path.basename(uri.fsPath)
+        );
         const pathKey = scenePath.split(path.sep).join('/');
         return {
           type: 'scene',

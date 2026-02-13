@@ -38,6 +38,58 @@ suite('Index discovery', () => {
     );
   });
 
+  test('getManuscript parses Index.md frontmatter when file ends at closing marker', async () => {
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    assert.ok(folder, 'Expected workspace folder');
+    if (!folder) return;
+
+    const indexUri = vscode.Uri.joinPath(folder.uri, 'Index.md');
+    const sceneUri = vscode.Uri.joinPath(folder.uri, 'sample scene.md');
+
+    const config = vscode.workspace.getConfiguration('noveltools');
+    const prevGlob = config.get<string>('indexYamlGlob');
+
+    try {
+      await vscode.workspace.fs.writeFile(sceneUri, Buffer.from('# Sample scene\n', 'utf8'));
+      await vscode.workspace.fs.writeFile(
+        indexUri,
+        Buffer.from(
+          '---\nlongform:\n  format: scenes\n  title: "No trailing newline"\n  sceneFolder: /\n  scenes:\n    - sample scene\n---',
+          'utf8'
+        )
+      );
+
+      await config.update('indexYamlGlob', '**/Index.md', vscode.ConfigurationTarget.Workspace);
+      clearManuscriptCache();
+
+      const result = await getManuscript();
+      assert.ok(result.projectFileUri, 'Expected project file URI to be set');
+      assert.strictEqual(
+        path.basename(result.projectFileUri!.fsPath),
+        'Index.md',
+        `Expected Index.md to be parsed, got ${result.projectFileUri?.fsPath}`
+      );
+      assert.ok(result.data, 'Expected manuscript data from Index.md frontmatter');
+      assert.ok(
+        result.flatUris.some((u) => path.basename(u.fsPath) === 'sample scene.md'),
+        `Expected scene from Index.md to be included, got: ${result.flatUris.map((u) => u.fsPath).join(', ')}`
+      );
+    } finally {
+      await config.update('indexYamlGlob', prevGlob, vscode.ConfigurationTarget.Workspace);
+      clearManuscriptCache();
+      try {
+        await vscode.workspace.fs.delete(indexUri);
+      } catch {
+        // ignore
+      }
+      try {
+        await vscode.workspace.fs.delete(sceneUri);
+      } catch {
+        // ignore
+      }
+    }
+  });
+
   test('getManuscript falls back to noveltools.yaml when discovered index is not parseable', async () => {
     const folder = vscode.workspace.workspaceFolders?.[0];
     assert.ok(folder, 'Expected workspace folder');

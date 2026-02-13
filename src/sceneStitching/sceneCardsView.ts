@@ -14,7 +14,7 @@ import {
   type SceneStatus,
 } from './projectYaml';
 
-const VIEW_ID = 'noveltools.manuscript';
+const VIEW_ID = 'noveltools.sceneCards';
 
 const STATUS_LABEL: Record<SceneStatus, string> = {
   done: 'Done',
