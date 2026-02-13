@@ -4,6 +4,7 @@ import { registerNavigation } from './sceneStitching/navigation';
 import { registerMoveChapter } from './sceneStitching/moveChapter';
 import { registerMoveScene } from './sceneStitching/moveScene';
 import { registerAddScene } from './sceneStitching/addScene';
+import { registerAddChapter } from './sceneStitching/addChapter';
 import { registerStitchedProvider } from './sceneStitching/stitchedProvider';
 import { registerManuscriptView } from './sceneStitching/manuscriptView';
 import { registerSceneCardsView } from './sceneStitching/sceneCardsView';
@@ -30,6 +31,7 @@ export function activate(context: vscode.ExtensionContext): void {
   safeRegister('Move Chapter', () => registerMoveChapter(context));
   safeRegister('Move Scene', () => registerMoveScene(context));
   safeRegister('Add Scene', () => registerAddScene(context));
+  safeRegister('Add Chapter', () => registerAddChapter(context));
   safeRegister('Word Count', () => registerWordCount(context));
 }
 

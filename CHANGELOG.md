@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.2] - 2026-02-13
 
+### Added
+
+- **Add Chapter** — Create a new chapter from the Manuscript sidebar; creates the chapter folder on disk and updates project YAML. Use the view title menu or right‑click a chapter for "Add Chapter Above" / "Add Chapter Below".
+
 ### Fixed
 
 - Restored the stable Manuscript view ID so the NovelTools sidebar is visible again after install/update.

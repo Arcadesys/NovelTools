@@ -149,6 +149,21 @@
         "icon": "$(add)"
       },
       {
+        "command": "noveltools.addChapter",
+        "title": "NovelTools: Add Chapter",
+        "icon": "$(add)"
+      },
+      {
+        "command": "noveltools.addChapterAbove",
+        "title": "NovelTools: Add Chapter Above",
+        "icon": "$(add)"
+      },
+      {
+        "command": "noveltools.addChapterBelow",
+        "title": "NovelTools: Add Chapter Below",
+        "icon": "$(add)"
+      },
+      {
         "command": "noveltools.renameScene",
         "title": "NovelTools: Rename Scene File…"
       },
@@ -303,6 +318,11 @@
           "command": "noveltools.refreshManuscript",
           "when": "view == noveltools.manuscript",
           "group": "navigation@3"
+        },
+        {
+          "command": "noveltools.addChapter",
+          "when": "view == noveltools.manuscript",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [
@@ -315,6 +335,16 @@
           "command": "noveltools.moveChapterDown",
           "when": "view == noveltools.manuscript && viewItem == chapter",
           "group": "navigation"
+        },
+        {
+          "command": "noveltools.addChapterAbove",
+          "when": "view == noveltools.manuscript && viewItem == chapter",
+          "group": "inline@0"
+        },
+        {
+          "command": "noveltools.addChapterBelow",
+          "when": "view == noveltools.manuscript && viewItem == chapter",
+          "group": "inline@0"
         },
         {
           "command": "noveltools.renameChapter",
