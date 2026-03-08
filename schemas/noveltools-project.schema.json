@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/austen/NovelTools/schemas/noveltools-project.schema.json",
-  "title": "NovelTools project YAML",
-  "description": "Schema for noveltools.yaml (or custom project file). Paths are relative to the directory containing this file. Each chapter is a folder; optional scenes list gives custom order (otherwise .md files are discovered alphabetically).",
+  "title": "NovelTools project JSON",
+  "description": "Schema for noveltools.json (or custom project file). Paths are relative to the directory containing this file. Each chapter is a folder; optional scenes list gives custom order (otherwise .md files are discovered alphabetically).",
   "type": "object",
   "additionalProperties": false,
   "properties": {

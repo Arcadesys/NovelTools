@@ -5,50 +5,42 @@ A Cursor/VS Code extension for long-form writing: scene stitching, manuscript si
 ## Features
 
 - **Scene stitching**: Navigate between scenes and chapters; open a stitched (combined) view of the whole manuscript.
-- **Manuscript sidebar**: Pull out the NovelTools sidebar to see the full manuscript as a tree (chapters → scenes). Drag and drop to reorder chapters or scenes; the project YAML is updated automatically. If you don’t have a project file yet, run **NovelTools: Build Project YAML** to create one from the current outline (or drag to reorder once—the file will be created on first drop). After that, all reordering is reflected in the YAML.
+- **Manuscript sidebar**: Pull out the NovelTools sidebar to see the full manuscript as a tree (chapters → scenes). Drag and drop to reorder chapters or scenes; the project file (JSON) is updated automatically. If you don’t have a project file yet, run **NovelTools: Build Project YAML** to create `noveltools.json` from the current outline (or drag to reorder once—the file will be created on first drop). After that, all reordering is reflected in the project file.
 - **Word counts**: Per-document word count and manuscript total in the status bar.
-- **Section status**: Mark each scene as done (🟢), drafted (🟡), or spiked out (🔴) from the Manuscript view context menu. Status is stored in the project YAML so you can see progress at a glance.
+- **Section status**: Mark each scene as done (🟢), drafted (🟡), or spiked out (🔴) from the Manuscript view context menu. Status is stored in the project file so you can see progress at a glance.
 
 ## Troubleshooting
 
 **“Cannot register 'noveltools.sceneGlob'. This property is already registered.”** — The extension is loaded twice (e.g. you have NovelTools installed and are also running from source). Fix: in the main Cursor window open **Extensions** (Ctrl+Shift+X / Cmd+Shift+X), find **NovelTools**, and **Uninstall**. Then use only the Extension Development Host (F5) when developing from source.
 
-## Project YAML format
+## Project JSON format
 
-Create a `noveltools.yaml` (or set `noveltools.projectFile` to another path) in your workspace root:
+Create a `noveltools.json` (or set `noveltools.projectFile` to another path) in your workspace root:
 
-```yaml
-title: My Novel
-chapters:
-  - folder: draft/chapter1
-  - folder: draft/chapter2
-    title: Chapter 2
-  - folder: AULD LANG LAPINE
-    scenes:
-      - Fenton waits for word on dads condition.md
-      - Daniel wakes from death.md
-      - Val introduces Lovejoy's next play.md
-  - "draft/chapter3"
+```json
+{
+  "title": "My Novel",
+  "chapters": [
+    { "folder": "draft/chapter1" },
+    { "folder": "draft/chapter2", "title": "Chapter 2" },
+    {
+      "folder": "AULD LANG LAPINE",
+      "scenes": [
+        "Fenton waits for word on dads condition.md",
+        "Daniel wakes from death.md",
+        "Val introduces Lovejoy's next play.md"
+      ]
+    },
+    "draft/chapter3"
+  ]
+}
 ```
 
-Paths are relative to the directory containing the project file. Each **chapter is a folder**. You can use a string (folder path) or an object with required `folder`, optional `title` (defaults to folder name), and optional **`scenes`** (custom order). When `scenes` is present, only those files are used, in that order; otherwise NovelTools discovers all `.md` files in the folder in **alphabetical order**. Scene entries are filenames (or paths relative to the folder). The Manuscript sidebar and all scene/chapter commands use this file; drag-and-drop rewrites the YAML and preserves custom scene order. Optional `sceneStatus` maps scene paths to `done`, `drafted`, or `spiked`; the Manuscript view shows 🟢/🟡/🔴 next to each scene.
+Paths are relative to the directory containing the project file. Each **chapter is a folder**. You can use a string (folder path) or an object with required `folder`, optional `title` (defaults to folder name), and optional **`scenes`** (custom order). When `scenes` is present, only those files are used, in that order; otherwise NovelTools discovers all `.md` files in the folder in **alphabetical order**. Scene entries are filenames (or paths relative to the folder). The Manuscript sidebar and all scene/chapter commands use this file; drag-and-drop rewrites the JSON and preserves custom scene order. Optional `sceneStatus` maps scene paths to `done`, `drafted`, or `spiked`; the Manuscript view shows 🟢/🟡/🔴 next to each scene.
 
-**Keeping the YAML shape in sync** — Use the JSON Schema so your editor can validate and offer completion:
+**Schema** — The JSON Schema at `schemas/noveltools-project.schema.json` validates the project file. In VS Code/Cursor, JSON files get completion and validation when the schema is associated (e.g. in workspace settings or via a `$schema` property). Editing via the Manuscript sidebar (drag-and-drop, rename chapter, etc.) keeps the file valid.
 
-1. In your project YAML file (e.g. `noveltools.yaml`), add this as the first line:
-   ```yaml
-   # yaml-language-server: $schema=./schemas/noveltools-project.schema.json
-   ```
-   (If the schema lives elsewhere, adjust the path or use an absolute `file://` or URL.)
-
-2. Or in VS Code/Cursor workspace settings (`.vscode/settings.json`), associate the schema with your project filename:
-   ```json
-   "yaml.schemas": {
-     "./schemas/noveltools-project.schema.json": "noveltools.yaml"
-   }
-   ```
-
-The schema is in this repo at `schemas/noveltools-project.schema.json` and matches the folder-only chapter format the extension reads and writes. Editing via the Manuscript sidebar (drag-and-drop, rename chapter, etc.) keeps the file valid; if you edit by hand, the schema will flag invalid keys or types.
+**Migrating from YAML** — If you have an existing `noveltools.yaml`, run **NovelTools: Convert Project to JSON** to create `noveltools.json` in the same directory. The extension will then use the JSON file. You can remove the old `.yaml` file after confirming everything works.
 
 **Alternatively: index.yaml** — NovelTools looks for `index.yaml` in the workspace root first. Use YAML frontmatter for the manuscript title, then a YAML array of scene paths in order:
 
@@ -72,22 +64,24 @@ Paths are relative to the directory containing `index.yaml`. Reordering in the s
 - **NovelTools: Move Chapter Up** / **Move Chapter Down**
 - **NovelTools: Open Stitched Manuscript** – open a virtual document with all scenes concatenated (with chapter headings).
 - **NovelTools: Open Stitched Chapter** – open a virtual document with one chapter’s scenes stitched (right‑click a chapter in the Manuscript view, or run from the Command Palette and pick a chapter).
-- **NovelTools: Open Stitched Selection** – shift-click one or more scenes in the Manuscript sidebar and stitch only that selection (always ordered by project YAML).
+- **NovelTools: Open Stitched Selection** – shift-click one or more scenes in the Manuscript sidebar and stitch only that selection (always ordered by project file).
 - **NovelTools: Set Chapter as Context** – write the stitched chapter to a file (e.g. `.cursor/noveltools-chapter-context.md`) and open it so you can @-mention it in Cursor chat or reference it in a rule for agent review.
-- **NovelTools: Refresh Manuscript View** – reload the project YAML in the sidebar.
-- **NovelTools: Build Project YAML** – create or update `noveltools.yaml` from the current manuscript outline (from the project file if present, otherwise from `noveltools.sceneFiles` or `noveltools.sceneGlob`). Use this when you don’t have a project file yet; after creating it, drag-and-drop in the sidebar will update the YAML.
+- **NovelTools: Refresh Manuscript View** – reload the project file in the sidebar.
+- **NovelTools: Build Project YAML** – create or update `noveltools.json` from the current manuscript outline (from the project file if present, otherwise from `noveltools.sceneFiles` or `noveltools.sceneGlob`). Use this when you don’t have a project file yet; after creating it, drag-and-drop in the sidebar will update the file.
+- **NovelTools: Convert Project to JSON** – one-time migration: save the current project as `noveltools.json` (use when you have an existing `noveltools.yaml`).
 
 ## Configuration
 
 | Setting | Description |
 |--------|-------------|
-| `noveltools.projectFile` | Project YAML filename or path (default: `noveltools.yaml`). |
+| `noveltools.projectFile` | Project JSON filename or path (default: `noveltools.json`). |
 | `noveltools.sceneFiles` | Fallback: ordered scene paths when no project file. |
 | `noveltools.sceneGlob` | Fallback: glob for scene files when no project file (default: `**/*.md`). |
-| `noveltools.chapterGrouping` | When building from files without a project YAML: `flat` (one chapter) or `folder` (group by folder). |
+| `noveltools.chapterGrouping` | When building from files without a project file: `flat` (one chapter) or `folder` (group by folder). |
 | `noveltools.wordCount.stripMarkdown` | Strip markdown before counting (default: false). |
-| `noveltools.wordCount.manuscriptScope` | `project` (use project YAML scene list) or `workspace` (all .md files). |
+| `noveltools.wordCount.manuscriptScope` | `project` (use project file scene list) or `workspace` (all .md files). |
 | `noveltools.chapterContextPath` | Path (relative to workspace root) where **Set Chapter as Context** writes the stitched chapter (default: `.cursor/noveltools-chapter-context.md`). |
+| `noveltools.stitched.sceneHeadingMode` | Scene heading style for stitched output: `fileName` (default), `sceneNumber`, or `none`. Use `sceneNumber` or `none` to avoid filename-derived headings. |
 | `noveltools.indexYamlGlob` | Glob to discover index files like `Index.YAML` or `Index.md` (default: `**/*[iI]ndex*.{yaml,yml,YAML,YML,md,MD}`). |
 
 ## Agent / Cursor context

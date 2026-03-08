@@ -407,7 +407,7 @@ function renderHtml(webview: vscode.Webview, nonce: string, model: SceneCardsMod
          <p>Build a project file from your markdown scenes to populate this view.</p>
        </div>`;
 
-  const buildOrOpenLabel = model.hasProjectFile ? 'Open Project YAML' : 'Build Project YAML';
+  const buildOrOpenLabel = model.hasProjectFile ? 'Open Project File' : 'Build Project YAML';
   const buildOrOpenCommand = model.hasProjectFile ? 'noveltools.openProjectYaml' : 'noveltools.buildProjectYaml';
   const documentButton = model.hasMultipleDocuments
     ? '<button class="action-btn" data-action="command" data-command="noveltools.selectDocument">Select Document</button>'

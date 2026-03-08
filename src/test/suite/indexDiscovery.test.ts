@@ -151,4 +151,57 @@ suite('Index discovery', () => {
       }
     }
   });
+
+  test('getManuscript loads noveltools.json when configured', async () => {
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    assert.ok(folder, 'Expected workspace folder');
+    if (!folder) return;
+
+    const projectUri = vscode.Uri.joinPath(folder.uri, 'noveltools.json');
+    const sceneUri = vscode.Uri.joinPath(folder.uri, 'json-test-scene.md');
+    const config = vscode.workspace.getConfiguration('noveltools');
+    const prevProjectFile = config.get<string>('projectFile');
+
+    try {
+      await vscode.workspace.fs.writeFile(
+        projectUri,
+        Buffer.from(
+          JSON.stringify({
+            title: 'JSON Project',
+            chapters: [{ folder: '.', scenes: ['json-test-scene.md'] }],
+          }),
+          'utf8'
+        )
+      );
+      await vscode.workspace.fs.writeFile(sceneUri, Buffer.from('# Scene\n', 'utf8'));
+      await config.update('projectFile', 'noveltools.json', vscode.ConfigurationTarget.Workspace);
+      clearManuscriptCache();
+
+      const result = await getManuscript();
+      assert.ok(result.projectFileUri, 'Expected project file URI');
+      assert.ok(
+        result.projectFileUri!.fsPath.endsWith('noveltools.json'),
+        `Expected noveltools.json, got ${result.projectFileUri?.fsPath}`
+      );
+      assert.ok(result.data, 'Expected manuscript data');
+      assert.strictEqual(result.data!.title, 'JSON Project');
+      assert.ok(
+        result.flatUris.some((u) => path.basename(u.fsPath) === 'json-test-scene.md'),
+        'Expected scene to be included'
+      );
+    } finally {
+      await config.update('projectFile', prevProjectFile, vscode.ConfigurationTarget.Workspace);
+      clearManuscriptCache();
+      try {
+        await vscode.workspace.fs.delete(projectUri);
+      } catch {
+        // ignore
+      }
+      try {
+        await vscode.workspace.fs.delete(sceneUri);
+      } catch {
+        // ignore
+      }
+    }
+  });
 });

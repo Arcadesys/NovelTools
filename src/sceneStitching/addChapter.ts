@@ -35,7 +35,7 @@ export function registerAddChapter(context: vscode.ExtensionContext): void {
 async function addChapter(nodeOrItem: ChapterNodeOrItem | undefined, position: 'above' | 'below' | 'end'): Promise<void> {
   let result = await getManuscript();
   if (!result.data) {
-    await vscode.window.showInformationMessage('No manuscript found. Build or open a project YAML first.');
+    await vscode.window.showInformationMessage('No manuscript found. Build or open a project file first.');
     return;
   }
   if (!result.projectFileUri) {
@@ -55,7 +55,7 @@ async function addChapter(nodeOrItem: ChapterNodeOrItem | undefined, position: '
 
   if (isIndexYaml(result.projectFileUri)) {
     await vscode.window.showInformationMessage(
-      'Adding chapters is not supported for index-style project files. Use a project file named noveltools.yaml to use folder-based chapters.'
+      'Adding chapters is not supported for index-style project files. Use a project file named noveltools.json to use folder-based chapters.'
     );
     return;
   }

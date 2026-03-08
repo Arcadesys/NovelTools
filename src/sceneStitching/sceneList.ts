@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { getProjectFile, getSceneFiles, getSceneGlob, getChapterGrouping, getIndexYamlGlob } from '../config';
-import { parseProjectYaml, parseIndexYaml, parseLongformIndexYaml, parseLongformStrict, resolveChapterFolders, type ManuscriptData, type ChapterData } from './projectYaml';
+import { parseProjectYaml, parseProjectJson, parseIndexYaml, parseLongformIndexYaml, parseLongformStrict, resolveChapterFolders, type ManuscriptData, type ChapterData } from './projectYaml';
 
 const INDEX_YAML = 'index.yaml';
 const ACTIVE_PROJECT_URI_KEY = 'noveltools.activeProjectUri';
@@ -171,17 +171,19 @@ async function loadFromProjectFile(uri: vscode.Uri): Promise<ManuscriptResult> {
   const strict = parseLongformStrict(content, uri);
   const index = parseIndexYaml(content, uri);
   const longform = parseLongformIndexYaml(content, uri);
-  // Prefer project YAML format for non-index files (e.g. noveltools.yaml) so index parser
-  // doesn't mis-parse { title, chapters } as a single empty chapter.
-  const projectYamlData = !isIndexYaml(uri) ? parseProjectYaml(content, uri) : null;
-  let data: ManuscriptData | null = projectYamlData ?? strict ?? index ?? longform;
-  const usedProjectYaml = !!projectYamlData && data === projectYamlData;
+  // Prefer project format for non-index files (noveltools.json or noveltools.yaml).
+  const isJson = uri.fsPath.toLowerCase().endsWith('.json');
+  const projectData = !isIndexYaml(uri)
+    ? (isJson ? parseProjectJson(content, uri) : parseProjectYaml(content, uri))
+    : null;
+  let data: ManuscriptData | null = projectData ?? strict ?? index ?? longform;
+  const usedProjectFile = !!projectData && data === projectData;
   if (data?.chapters.some((ch) => ch.folderPath)) {
     const baseDir = vscode.Uri.joinPath(uri, '..');
     data = await resolveChapterFolders(data, baseDir);
   }
   const relativePath = vscode.workspace.asRelativePath(uri);
-  const whichParser = usedProjectYaml ? 'projectYaml' : strict ? 'strict' : index ? 'index' : longform ? 'longform' : 'none';
+  const whichParser = usedProjectFile ? 'project' : strict ? 'strict' : index ? 'index' : longform ? 'longform' : 'none';
   // #region agent log
   fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'sceneList.ts:loadFromProjectFile',message:'Parse result',data:{uri:relativePath,contentLen:content.length,strictOk:!!strict,indexOk:!!index,longformOk:!!longform,dataOk:!!data,whichParser,chaptersCount:data?.chapters?.length ?? 0,sceneCounts:data?.chapters?.map(c=>c.sceneUris?.length ?? 0)},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
   // #endregion

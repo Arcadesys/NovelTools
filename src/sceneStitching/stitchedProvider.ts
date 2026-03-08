@@ -1,7 +1,7 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
-import { getChapterContextPath } from '../config';
+import { getChapterContextPath, getStitchedSceneHeadingMode, type StitchedSceneHeadingMode } from '../config';
 import { getManuscript } from './sceneList';
+import { buildSceneHeadingLine, buildSceneHeadingText } from './sceneHeading';
 
 const SCHEME = 'noveltools';
 const AUTHORITY = 'stitched';
@@ -35,9 +35,9 @@ export function getStitchedChapterUri(chapterIndex: number): vscode.Uri {
 }
 
 function parseChapterIndexFromUri(uri: vscode.Uri): number | null {
-  const path = uri.path.replace(/^\/+/, '');
-  if (!path.startsWith(CHAPTER_PATH_PREFIX)) return null;
-  const indexStr = path.slice(CHAPTER_PATH_PREFIX.length);
+  const uriPath = uri.path.replace(/^\/+/, '');
+  if (!uriPath.startsWith(CHAPTER_PATH_PREFIX)) return null;
+  const indexStr = uriPath.slice(CHAPTER_PATH_PREFIX.length);
   const index = parseInt(indexStr, 10);
   if (!Number.isInteger(index) || index < 0) return null;
   return index;
@@ -127,12 +127,6 @@ function chapterHeading(title: string | undefined, chapterIndex: number): string
   return trimmed && trimmed.length > 0 ? trimmed : fallback;
 }
 
-function sceneHeading(uri: vscode.Uri, sceneIndex: number): string {
-  const stem = path.basename(uri.fsPath, path.extname(uri.fsPath));
-  const pretty = stem.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
-  return pretty || `Scene ${sceneIndex + 1}`;
-}
-
 function renderStitchedHeader(title: string, chapterCount: number, sceneCount: number, wordCount: number): string {
   const generatedAt = new Date().toLocaleString();
   return [
@@ -145,12 +139,15 @@ function renderStitchedHeader(title: string, chapterCount: number, sceneCount: n
   ].join('\n');
 }
 
-async function collectStitchedScenes(sceneUris: vscode.Uri[]): Promise<StitchedScene[]> {
+async function collectStitchedScenes(
+  sceneUris: vscode.Uri[],
+  headingMode: StitchedSceneHeadingMode
+): Promise<StitchedScene[]> {
   const scenes: StitchedScene[] = [];
   for (let i = 0; i < sceneUris.length; i++) {
     const uri = sceneUris[i];
     const source = vscode.workspace.asRelativePath(uri);
-    const heading = sceneHeading(uri, i);
+    const heading = buildSceneHeadingText(uri, i, headingMode);
     try {
       const doc = await vscode.workspace.openTextDocument(uri);
       const body = doc.getText().trimEnd();
@@ -190,7 +187,7 @@ function renderChapterBlock(chapter: StitchedChapter): string {
   }
 
   for (const scene of chapter.scenes) {
-    out.push(`### ${chapter.index + 1}.${scene.index + 1} ${scene.heading}`);
+    out.push(buildSceneHeadingLine(chapter.index, scene.index, scene.heading));
     out.push('');
     out.push(
       scene.unreadable
@@ -207,14 +204,15 @@ function renderChapterBlock(chapter: StitchedChapter): string {
 
 async function buildStitchedContent(): Promise<string> {
   const { data } = await getManuscript();
-  if (!data || data.flatUris.length === 0) return 'No manuscript. Add a noveltools.yaml or scenes.';
+  if (!data || data.flatUris.length === 0) return 'No manuscript. Add a noveltools.json or scenes.';
+  const headingMode = getStitchedSceneHeadingMode();
   const stitchedChapters: StitchedChapter[] = [];
   let totalWords = 0;
   let totalScenes = 0;
 
   for (let chapterIndex = 0; chapterIndex < data.chapters.length; chapterIndex++) {
     const ch = data.chapters[chapterIndex];
-    const scenes = await collectStitchedScenes(ch.sceneUris);
+    const scenes = await collectStitchedScenes(ch.sceneUris, headingMode);
     stitchedChapters.push({
       index: chapterIndex,
       heading: chapterHeading(ch.title, chapterIndex),
@@ -277,11 +275,12 @@ export async function resolveChapterIndex(nodeOrItem?: unknown): Promise<number 
 /** Build stitched markdown for a single chapter (same format as full manuscript). */
 export async function buildStitchedChapterContent(chapterIndex: number): Promise<string> {
   const { data } = await getManuscript();
-  if (!data || data.chapters.length === 0) return 'No manuscript. Add a noveltools.yaml or scenes.';
+  if (!data || data.chapters.length === 0) return 'No manuscript. Add a noveltools.json or scenes.';
   const ch = data.chapters[chapterIndex];
   if (!ch) return `Chapter ${chapterIndex + 1} not found.`;
   const heading = chapterHeading(ch.title, chapterIndex);
-  const scenes = await collectStitchedScenes(ch.sceneUris);
+  const headingMode = getStitchedSceneHeadingMode();
+  const scenes = await collectStitchedScenes(ch.sceneUris, headingMode);
   const totalWords = scenes.reduce((sum, s) => sum + s.wordCount, 0);
   const chapterData: StitchedChapter = {
     index: chapterIndex,

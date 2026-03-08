@@ -38,8 +38,8 @@
       "properties": {
         "noveltools.projectFile": {
           "type": "string",
-          "default": "noveltools.yaml",
-          "description": "Project YAML filename (or path relative to workspace root)."
+          "default": "noveltools.json",
+          "description": "Project JSON filename (or path relative to workspace root)."
         },
         "noveltools.sceneFiles": {
           "type": "array",
@@ -86,6 +86,21 @@
           "type": "string",
           "default": ".cursor/noveltools-chapter-context.md",
           "description": "Path (relative to workspace root) where \"Set Chapter as Context\" writes the stitched chapter for agent review. Create a Cursor rule or @-mention this file in chat."
+        },
+        "noveltools.stitched.sceneHeadingMode": {
+          "type": "string",
+          "default": "fileName",
+          "enum": [
+            "fileName",
+            "sceneNumber",
+            "none"
+          ],
+          "enumDescriptions": [
+            "Use each markdown filename (pretty-printed) as the scene heading text.",
+            "Use generic scene headings like \"Scene 1\" instead of filenames.",
+            "Show numbered markdown headings only (for example: \"### 1.1\") with no scene title text."
+          ],
+          "description": "Controls scene heading text in stitched manuscript/chapter/selection output."
         }
       }
     },
@@ -236,12 +251,17 @@
       },
       {
         "command": "noveltools.convertLongformToProjectYaml",
-        "title": "NovelTools: Convert Longform to Project YAML",
+        "title": "NovelTools: Convert Longform to Project",
         "icon": "$(file-symlink-file)"
       },
       {
+        "command": "noveltools.convertProjectToJson",
+        "title": "NovelTools: Convert Project to JSON",
+        "icon": "$(file-code)"
+      },
+      {
         "command": "noveltools.openProjectYaml",
-        "title": "NovelTools: Open Project YAML",
+        "title": "NovelTools: Open Project File",
         "icon": "$(go-to-file)"
       },
       {
@@ -294,7 +314,7 @@
     "viewsWelcome": [
       {
         "view": "noveltools.manuscript",
-        "contents": "# Welcome to NovelTools\n\nVersion: **v1.1.2**\n\nThe **scene outline** (chapters and scenes) opens in the **editor** area, not here.\n\n- $(list-tree) [Open Scene Outline](command:noveltools.openSceneOutline) — opens the outline in an editor tab\n- $(book) [Open Stitched Manuscript](command:noveltools.openStitchedManuscript)\n- $(go-to-file) [Open Project YAML](command:noveltools.openProjectYaml)\n- $(new-file) [Build Project YAML](command:noveltools.buildProjectYaml)\n- $(file-symlink-file) [Convert Longform to Project YAML](command:noveltools.convertLongformToProjectYaml)\n\nIn the outline you can expand/collapse chapters, click scenes to open them, and use the toolbar for Refresh, Open Project YAML, and Open Stitched.\n\n[Quick Start Guide](command:noveltools.showQuickStart) | [Settings](command:noveltools.openSettings)"
+        "contents": "# Welcome to NovelTools\n\nVersion: **v1.1.2**\n\nThe **scene outline** (chapters and scenes) opens in the **editor** area, not here.\n\n- $(list-tree) [Open Scene Outline](command:noveltools.openSceneOutline) — opens the outline in an editor tab\n- $(book) [Open Stitched Manuscript](command:noveltools.openStitchedManuscript)\n- $(go-to-file) [Open Project File](command:noveltools.openProjectYaml)\n- $(new-file) [Build Project YAML](command:noveltools.buildProjectYaml)\n- $(file-symlink-file) [Convert Longform to Project](command:noveltools.convertLongformToProjectYaml)\n\nIn the outline you can expand/collapse chapters, click scenes to open them, and use the toolbar for Refresh, Open Project File, and Open Stitched.\n\n[Quick Start Guide](command:noveltools.showQuickStart) | [Settings](command:noveltools.openSettings)"
       }
     ],
     "menus": {

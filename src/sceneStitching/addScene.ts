@@ -26,7 +26,7 @@ export function registerAddScene(context: vscode.ExtensionContext): void {
 async function addScene(node: SceneNode | undefined, position: 'above' | 'below'): Promise<void> {
   let result = await getManuscript();
   if (!result.data) {
-    await vscode.window.showInformationMessage('No manuscript found. Build or open a project YAML first.');
+    await vscode.window.showInformationMessage('No manuscript found. Build or open a project file first.');
     return;
   }
   if (!result.projectFileUri) {

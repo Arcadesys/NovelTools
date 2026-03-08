@@ -269,7 +269,7 @@ function renderOutlineHtml(webview: vscode.Webview, nonce: string, model: Outlin
     </div>
     <div class="actions">
       <button class="action-btn" data-command="noveltools.refreshManuscript">Refresh</button>
-      <button class="action-btn" data-command="noveltools.openProjectYaml">Open Project YAML</button>
+      <button class="action-btn" data-command="noveltools.openProjectYaml">Open Project File</button>
       <button class="action-btn" data-command="noveltools.openStitchedManuscript">Open Stitched</button>
     </div>
   </section>

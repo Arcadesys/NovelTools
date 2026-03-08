@@ -2,8 +2,10 @@ import * as vscode from 'vscode';
 
 const SECTION = 'noveltools';
 
+export type StitchedSceneHeadingMode = 'fileName' | 'sceneNumber' | 'none';
+
 export function getProjectFile(): string {
-  return vscode.workspace.getConfiguration(SECTION).get<string>('projectFile') ?? 'noveltools.yaml';
+  return vscode.workspace.getConfiguration(SECTION).get<string>('projectFile') ?? 'noveltools.json';
 }
 
 export function getIndexYamlGlob(): string {
@@ -34,4 +36,10 @@ export function getWordCountManuscriptScope(): 'project' | 'workspace' {
 
 export function getChapterContextPath(): string {
   return vscode.workspace.getConfiguration(SECTION).get<string>('chapterContextPath') ?? '.cursor/noveltools-chapter-context.md';
+}
+
+export function getStitchedSceneHeadingMode(): StitchedSceneHeadingMode {
+  const mode = vscode.workspace.getConfiguration(SECTION).get<string>('stitched.sceneHeadingMode') ?? 'fileName';
+  if (mode === 'sceneNumber' || mode === 'none') return mode;
+  return 'fileName';
 }

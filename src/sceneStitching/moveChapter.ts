@@ -16,7 +16,7 @@ async function moveChapter(delta: number): Promise<void> {
   const result = await getManuscript();
   if (!result.data || !result.projectFileUri) {
     await vscode.window.showInformationMessage(
-      'No project YAML file. Create a noveltools.yaml with chapters to move.'
+      'No project file. Create a noveltools.json with chapters to move.'
     );
     return;
   }

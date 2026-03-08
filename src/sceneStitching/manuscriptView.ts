@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { getProjectFile } from '../config';
+import { getProjectFile, getStitchedSceneHeadingMode } from '../config';
 import {
   getManuscript,
   getManuscriptByUri,
@@ -16,16 +16,19 @@ import {
   removeChapter as removeChapterInData,
   parseLongformStrict,
   parseLongformIndexYaml,
+  scenePathsRelativeTo,
+  serializeToJson,
 } from './projectYaml';
 import { buildProjectYamlToFile, writeProjectYaml } from './projectFile';
 import type { ManuscriptData, SceneStatus } from './projectYaml';
+import { buildSceneHeadingLine, buildSceneHeadingText } from './sceneHeading';
 
 const VIEW_ID = 'noveltools.manuscript';
 const MIME_TREE = `application/vnd.code.tree.${VIEW_ID}`;
 const QUICK_START_FALLBACK = `# NovelTools Quick Start
 
 1. Create a project file
-   - Run "NovelTools: Build Project YAML" to create \`noveltools.yaml\` from your scene files.
+   - Run "NovelTools: Build Project YAML" to create \`noveltools.json\` from your scene files.
 
 2. Use the Manuscript view
    - Drag chapters and scenes to reorder. Changes are written back to the YAML.
@@ -105,12 +108,6 @@ function isConfiguredProjectFile(uri: vscode.Uri): boolean {
 
 function isIndexLikeFileName(name: string): boolean {
   return /index\.(yaml|yml|md)$/i.test(name) || /manuscript\.(yaml|yml)$/i.test(name);
-}
-
-function sceneTitleFromUri(uri: vscode.Uri): string {
-  const stem = path.basename(uri.fsPath, path.extname(uri.fsPath));
-  const pretty = stem.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
-  return pretty || path.basename(uri.fsPath);
 }
 
 function getConfiguredProjectUri(): vscode.Uri | null {
@@ -281,7 +278,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       try {
         await vscode.workspace.fs.stat(targetUri);
         const overwrite = await vscode.window.showWarningMessage(
-          `"${vscode.workspace.asRelativePath(targetUri)}" already exists. Overwrite with converted project YAML?`,
+          `"${vscode.workspace.asRelativePath(targetUri)}" already exists. Overwrite with converted project file?`,
           { modal: true },
           'Overwrite'
         );
@@ -300,6 +297,41 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       treeDataProvider.refresh();
       await vscode.window.showInformationMessage(
         `Converted Longform index to ${vscode.workspace.asRelativePath(targetUri)}. You can now use it as your project file.`
+      );
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('noveltools.convertProjectToJson', async () => {
+      const result = await getManuscript();
+      if (!result.projectFileUri || !result.data) {
+        await vscode.window.showInformationMessage('No project file loaded. Open or create a project first.');
+        return;
+      }
+      const uri = result.projectFileUri;
+      if (uri.fsPath.toLowerCase().endsWith('.json')) {
+        await vscode.window.showInformationMessage('Project is already JSON.');
+        return;
+      }
+      if (!uri.fsPath.endsWith('.yaml') && !uri.fsPath.endsWith('.yml')) {
+        await vscode.window.showInformationMessage('Current project file is not YAML. Convert only applies to .yaml/.yml files.');
+        return;
+      }
+      const dir = vscode.Uri.joinPath(uri, '..');
+      const jsonUri = vscode.Uri.joinPath(dir, 'noveltools.json');
+      const baseDir = vscode.Uri.joinPath(uri, '..');
+      const chapters = result.data.chapters.map((ch) => ({
+        ...ch,
+        scenePaths: scenePathsRelativeTo(baseDir, ch.sceneUris),
+      }));
+      const dataForWrite: ManuscriptData = { ...result.data, chapters, projectFileUri: jsonUri };
+      const json = serializeToJson(dataForWrite, baseDir);
+      await vscode.workspace.fs.writeFile(jsonUri, Buffer.from(json, 'utf8'));
+      await setActiveProjectUri(jsonUri);
+      clearManuscriptCache();
+      treeDataProvider.refresh();
+      await vscode.window.showInformationMessage(
+        `Saved as ${vscode.workspace.asRelativePath(jsonUri)}. You can remove the old YAML file if desired.`
       );
     })
   );
@@ -340,7 +372,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:openProjectYaml',message:'Checking workspace folders',data:{hasFolders:!!folders?.length,folderCount:folders?.length ?? 0},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
       // #endregion
 
-      // Show file picker to let user select a project YAML file.
+      // Show file picker to let user select a project file.
       // Only pass defaultUri for local (file:) workspaces so the native dialog can open;
       // remote schemes or no folder can prevent the picker from showing on some platforms.
       const firstFolder = folders?.[0];
@@ -361,12 +393,12 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
         canSelectFiles: true,
         canSelectFolders: false,
         canSelectMany: false,
-        openLabel: 'Open Project YAML',
+        openLabel: 'Open Project File',
         filters: {
           'YAML files': ['yaml', 'yml', 'YAML', 'YML'],
           'All files': ['*']
         },
-        title: 'Select Project YAML File (e.g. noveltools.yaml)'
+        title: 'Select Project File (e.g. noveltools.json)'
       };
       if (defaultUri !== undefined) {
         dialogOptions.defaultUri = defaultUri;
@@ -426,7 +458,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       if (configuredUri) {
         const rel = vscode.workspace.asRelativePath(configuredUri);
         const choice = await vscode.window.showInformationMessage(
-          `No project YAML found. Create ${rel}?`,
+          `No project file found. Create ${rel}?`,
           'Create and Open',
           'Build Project YAML',
           'Cancel'
@@ -434,7 +466,8 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
         if (choice === 'Create and Open') {
           const parent = vscode.Uri.joinPath(configuredUri, '..');
           await vscode.workspace.fs.createDirectory(parent);
-          const starter = 'title: ""\nchapters: []\n';
+          const isJson = configuredUri.fsPath.toLowerCase().endsWith('.json');
+          const starter = isJson ? '{\n  "title": "",\n  "chapters": []\n}\n' : 'title: ""\nchapters: []\n';
           await vscode.workspace.fs.writeFile(configuredUri, Buffer.from(starter, 'utf8'));
           await openAndFocus(configuredUri);
           return;
@@ -447,7 +480,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
         // #region agent log
         fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:openProjectYaml',message:'Command error',data:{error:String(error),errorMessage:error instanceof Error ? error.message : 'unknown',errorStack:error instanceof Error ? error.stack : undefined},timestamp:Date.now(),hypothesisId:'H1,H2,H3'})}).catch(()=>{});
         // #endregion
-        await vscode.window.showErrorMessage(`Failed to open project YAML: ${error instanceof Error ? error.message : String(error)}`);
+        await vscode.window.showErrorMessage(`Failed to open project file: ${error instanceof Error ? error.message : String(error)}`);
       }
     })
   );
@@ -494,9 +527,10 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       const lines: string[] = [];
       let stitchedCount = 0;
       let currentChapterIndex = -1;
+      const headingMode = getStitchedSceneHeadingMode();
 
       lines.push('# Stitched Selection', '');
-      lines.push(`> ${selectedSet.size} selected ${selectedSet.size === 1 ? 'scene' : 'scenes'}, ordered by project YAML.`, '');
+      lines.push(`> ${selectedSet.size} selected ${selectedSet.size === 1 ? 'scene' : 'scenes'}, ordered by project file.`, '');
 
       for (let chapterIndex = 0; chapterIndex < result.data.chapters.length; chapterIndex++) {
         const chapter = result.data.chapters[chapterIndex];
@@ -510,8 +544,8 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
             currentChapterIndex = chapterIndex;
           }
 
-          const sceneTitle = sceneTitleFromUri(uri);
-          lines.push(`### ${chapterIndex + 1}.${sceneIndex + 1} ${sceneTitle}`);
+          const sceneHeading = buildSceneHeadingText(uri, sceneIndex, headingMode);
+          lines.push(buildSceneHeadingLine(chapterIndex, sceneIndex, sceneHeading));
           lines.push(`*Source:* \`${vscode.workspace.asRelativePath(uri)}\``, '');
           try {
             const doc = await vscode.workspace.openTextDocument(uri);
@@ -529,7 +563,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
         return;
       }
 
-      lines[2] = `> ${stitchedCount} stitched ${stitchedCount === 1 ? 'scene' : 'scenes'}, ordered by project YAML.`;
+      lines[2] = `> ${stitchedCount} stitched ${stitchedCount === 1 ? 'scene' : 'scenes'}, ordered by project file.`;
       const doc = await vscode.workspace.openTextDocument({
         content: lines.join('\n').trimEnd(),
         language: 'markdown',
@@ -692,14 +726,14 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
             await renameFileOnDisk(newUri, oldUri);
           } catch (rollbackErr) {
             await vscode.window.showErrorMessage(
-              `Scene file was renamed, but project YAML update failed and rollback also failed: ${rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr)}`
+              `Scene file was renamed, but project file update failed and rollback also failed: ${rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr)}`
             );
             clearManuscriptCache(data.projectFileUri);
             treeDataProvider.refresh();
             return;
           }
           await vscode.window.showErrorMessage(
-            `Could not update project YAML after renaming. The file rename was reverted: ${err instanceof Error ? err.message : String(err)}`
+            `Could not update project file after renaming. The file rename was reverted: ${err instanceof Error ? err.message : String(err)}`
           );
           clearManuscriptCache(data.projectFileUri);
           treeDataProvider.refresh();
@@ -901,7 +935,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
     }
     const data = selection.data;
     if (!data.projectFileUri) {
-      await vscode.window.showInformationMessage('Section status is saved in the project YAML. Open or create a project file first.');
+      await vscode.window.showInformationMessage('Section status is saved in the project file. Open or create a project file first.');
       return;
     }
     const ch = data.chapters[selection.chapterIndex];
@@ -952,7 +986,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       }
       const data = selection.data;
       if (!data.projectFileUri) {
-        await vscode.window.showInformationMessage('Section status is saved in the project YAML. Open or create a project file first.');
+        await vscode.window.showInformationMessage('Section status is saved in the project file. Open or create a project file first.');
         return;
       }
       const choice = await vscode.window.showQuickPick(
@@ -1046,7 +1080,7 @@ class ManuscriptTreeDataProvider
         item.tooltip = element.label;
         item.command = {
           command: 'noveltools.openProjectYaml',
-          title: 'Open Project YAML',
+          title: 'Open Project File',
         };
       }
     }
@@ -1176,7 +1210,7 @@ class ManuscriptTreeDataProvider
       console.error('[NovelTools] Manuscript tree load failed:', err);
       return [{
         type: 'root',
-        label: `Manuscript view failed to load (${detail.slice(0, 120)}). Click to open project YAML.`,
+        label: `Manuscript view failed to load (${detail.slice(0, 120)}). Click to open project file.`,
         data: null,
       }];
     }
