@@ -1,16 +1,11 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { getProjectFile } from '../config';
 import {
   clearManuscriptCache,
   findAllIndexYaml,
   getManuscript,
-  type ManuscriptResult,
 } from './sceneList';
-import { buildProjectYamlToFile, writeProjectYaml } from './projectFile';
 import {
-  moveScene as moveSceneInData,
-  reorderChapters,
   type SceneStatus,
 } from './projectYaml';
 
@@ -37,7 +32,6 @@ const COMMAND_WHITELIST = new Set([
   'noveltools.showQuickStart',
   'noveltools.openSettings',
   'noveltools.selectDocument',
-  'noveltools.convertLongformToProjectYaml',
   'noveltools.openSceneOutline',
 ]);
 
@@ -77,25 +71,9 @@ interface OpenSceneMessage {
   uri: string;
 }
 
-interface ReorderSceneMessage {
-  type: 'reorderScene';
-  fromChapterIndex: number;
-  fromSceneIndex: number;
-  toChapterIndex: number;
-  toSceneIndex: number;
-}
-
-interface ReorderChapterMessage {
-  type: 'reorderChapter';
-  fromChapterIndex: number;
-  toChapterIndex: number;
-}
-
 type WebviewMessage =
   | RunCommandMessage
-  | OpenSceneMessage
-  | ReorderSceneMessage
-  | ReorderChapterMessage;
+  | OpenSceneMessage;
 
 export function registerSceneCardsView(context: vscode.ExtensionContext): void {
   const provider = new SceneCardsViewProvider();
@@ -204,96 +182,9 @@ class SceneCardsViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
-    if (
-      typed.type === 'reorderScene'
-      && Number.isInteger(typed.fromChapterIndex)
-      && Number.isInteger(typed.fromSceneIndex)
-      && Number.isInteger(typed.toChapterIndex)
-      && Number.isInteger(typed.toSceneIndex)
-    ) {
-      await this.reorderScene(typed);
-      return;
-    }
-
-    if (
-      typed.type === 'reorderChapter'
-      && Number.isInteger(typed.fromChapterIndex)
-      && Number.isInteger(typed.toChapterIndex)
-    ) {
-      await this.reorderChapter(typed);
-    }
+    // Ignore any legacy drag-and-drop messages from older webviews.
   }
 
-  private async reorderScene(msg: ReorderSceneMessage): Promise<void> {
-    const result = await this.ensureWritableManuscript();
-    if (!result?.data || !result.projectFileUri) return;
-
-    const data = result.data;
-    if (msg.fromChapterIndex < 0 || msg.fromChapterIndex >= data.chapters.length) return;
-    const fromChapter = data.chapters[msg.fromChapterIndex];
-    if (msg.fromSceneIndex < 0 || msg.fromSceneIndex >= fromChapter.sceneUris.length) return;
-
-    const toChapterIndex = clamp(msg.toChapterIndex, 0, data.chapters.length - 1);
-    const toChapter = data.chapters[toChapterIndex];
-    let toSceneIndex = clamp(msg.toSceneIndex, 0, toChapter.sceneUris.length);
-
-    if (msg.fromChapterIndex === toChapterIndex && toSceneIndex > msg.fromSceneIndex) {
-      toSceneIndex -= 1;
-    }
-    if (msg.fromChapterIndex === toChapterIndex && toSceneIndex === msg.fromSceneIndex) {
-      return;
-    }
-
-    const next = moveSceneInData(
-      data,
-      msg.fromChapterIndex,
-      msg.fromSceneIndex,
-      toChapterIndex,
-      toSceneIndex
-    );
-
-    await writeProjectYaml(result.projectFileUri, next);
-    clearManuscriptCache(result.projectFileUri);
-    await vscode.commands.executeCommand('noveltools.refreshManuscript');
-  }
-
-  private async reorderChapter(msg: ReorderChapterMessage): Promise<void> {
-    const result = await this.ensureWritableManuscript();
-    if (!result?.data || !result.projectFileUri) return;
-
-    const data = result.data;
-    if (msg.fromChapterIndex < 0 || msg.fromChapterIndex >= data.chapters.length) return;
-
-    let toChapterIndex = clamp(msg.toChapterIndex, 0, data.chapters.length);
-    if (msg.fromChapterIndex < toChapterIndex) {
-      toChapterIndex -= 1;
-    }
-    if (toChapterIndex === msg.fromChapterIndex) return;
-
-    const next = reorderChapters(data, msg.fromChapterIndex, toChapterIndex);
-    await writeProjectYaml(result.projectFileUri, next);
-    clearManuscriptCache(result.projectFileUri);
-    await vscode.commands.executeCommand('noveltools.refreshManuscript');
-  }
-
-  private async ensureWritableManuscript(): Promise<ManuscriptResult | null> {
-    let result = await getManuscript();
-    if (!result.data) return null;
-
-    if (!result.projectFileUri) {
-      const targetUri = getConfiguredProjectUri();
-      if (!targetUri) {
-        await vscode.window.showInformationMessage('Open a workspace folder first.');
-        return null;
-      }
-      await buildProjectYamlToFile(targetUri, result.data);
-      clearManuscriptCache();
-      result = await getManuscript(targetUri);
-    }
-
-    if (!result.data || !result.projectFileUri) return null;
-    return result;
-  }
 }
 
 async function buildSceneCardsModel(): Promise<SceneCardsModel> {
@@ -490,13 +381,8 @@ function renderHtml(webview: vscode.Webview, nonce: string, model: SceneCardsMod
     }
     .chapter {
       margin-bottom: 14px;
-      border: 1px solid transparent;
       border-radius: var(--nt-radius);
       padding: 2px;
-    }
-    .chapter.drag-over {
-      border-color: var(--nt-accent);
-      background: color-mix(in srgb, var(--vscode-list-hoverBackground) 70%, transparent);
     }
     .chapter-header {
       display: flex;
@@ -537,10 +423,6 @@ function renderHtml(webview: vscode.Webview, nonce: string, model: SceneCardsMod
     .scene-card:hover {
       border-color: var(--nt-accent);
       transform: translateY(-1px);
-    }
-    .scene-card.drag-over {
-      border-color: var(--nt-accent);
-      box-shadow: inset 0 0 0 1px var(--nt-accent);
     }
     .scene-title-row {
       display: flex;
@@ -600,32 +482,6 @@ function renderHtml(webview: vscode.Webview, nonce: string, model: SceneCardsMod
       border-color: var(--vscode-testing-iconFailed);
       color: var(--vscode-testing-iconFailed);
     }
-    .scene-drop-end,
-    .chapter-drop-end {
-      border: 1px dashed var(--nt-border);
-      border-radius: var(--nt-radius-small);
-      color: var(--nt-fg-muted);
-      font-size: 10px;
-      text-align: center;
-      padding: 6px;
-      opacity: 0;
-      transition: opacity 120ms ease;
-      pointer-events: none;
-    }
-    body.drag-scene .scene-drop-end,
-    body.drag-chapter .chapter-drop-end {
-      opacity: 1;
-      pointer-events: auto;
-    }
-    .scene-drop-end.drag-over,
-    .chapter-drop-end.drag-over {
-      border-color: var(--nt-accent);
-      color: var(--nt-fg-strong);
-      background: var(--vscode-list-hoverBackground);
-    }
-    .chapter-drop-end {
-      margin-top: 8px;
-    }
     .empty-panel {
       border: 1px dashed var(--nt-border);
       border-radius: var(--nt-radius);
@@ -648,7 +504,7 @@ function renderHtml(webview: vscode.Webview, nonce: string, model: SceneCardsMod
       <h2>${escapeHtml(model.manuscriptTitle)}</h2>
       <span class="meta">${model.chapterCount} chapters · ${model.sceneCount} scenes</span>
     </div>
-    <p class="submeta">Drag chapter headers or scene cards to reorder.</p>
+    <p class="submeta">Click a scene card to open it. Reorder chapters and scenes from the Manuscript tree.</p>
     <div class="actions">
       <button class="action-btn" data-action="command" data-command="noveltools.refreshManuscript">Refresh</button>
       <button class="action-btn" data-action="command" data-command="${buildOrOpenCommand}">${buildOrOpenLabel}</button>
@@ -658,44 +514,19 @@ function renderHtml(webview: vscode.Webview, nonce: string, model: SceneCardsMod
       ${documentButton}
     </div>
   </section>
-
   ${chaptersHtml}
-  <div class="chapter-drop-end" data-drop-kind="chapter-end" data-to-chapter-index="${model.chapterCount}">Drop chapter here to move to end</div>
 
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
 
-    const dragState = {
-      type: null,
-      fromChapterIndex: null,
-      fromSceneIndex: null,
-    };
     let suppressClickUntil = 0;
-
-    const parseIndex = (raw) => {
-      const value = Number(raw);
-      return Number.isInteger(value) ? value : null;
-    };
-
-    const clearDragClasses = () => {
-      document.querySelectorAll('.drag-over').forEach((node) => node.classList.remove('drag-over'));
-    };
-
-    const resetDragState = () => {
-      dragState.type = null;
-      dragState.fromChapterIndex = null;
-      dragState.fromSceneIndex = null;
-      document.body.classList.remove('drag-scene', 'drag-chapter');
-      clearDragClasses();
+    const resetClickSuppression = () => {
       suppressClickUntil = Date.now() + 120;
     };
 
     document.querySelectorAll('[data-action="open-scene"]').forEach((node) => {
       node.addEventListener('click', () => {
         if (Date.now() < suppressClickUntil) return;
-        if (document.body.classList.contains('drag-scene') || document.body.classList.contains('drag-chapter')) {
-          return;
-        }
         const rawUri = node.getAttribute('data-uri');
         if (!rawUri) return;
         vscode.postMessage({ type: 'openScene', uri: decodeURIComponent(rawUri) });
@@ -710,169 +541,10 @@ function renderHtml(webview: vscode.Webview, nonce: string, model: SceneCardsMod
       });
     });
 
-    document.querySelectorAll('[data-drag-kind="scene"]').forEach((node) => {
-      node.addEventListener('dragstart', (event) => {
-        const fromChapterIndex = parseIndex(node.getAttribute('data-chapter-index'));
-        const fromSceneIndex = parseIndex(node.getAttribute('data-scene-index'));
-        if (fromChapterIndex === null || fromSceneIndex === null) {
-          event.preventDefault();
-          return;
-        }
-        dragState.type = 'scene';
-        dragState.fromChapterIndex = fromChapterIndex;
-        dragState.fromSceneIndex = fromSceneIndex;
-        document.body.classList.add('drag-scene');
-        if (event.dataTransfer) {
-          event.dataTransfer.effectAllowed = 'move';
-          event.dataTransfer.setData('text/plain', String(fromChapterIndex) + ':' + String(fromSceneIndex));
-        }
-      });
-      node.addEventListener('dragend', () => {
-        setTimeout(resetDragState, 0);
-      });
-      node.addEventListener('dragover', (event) => {
-        if (dragState.type !== 'scene') return;
-        event.preventDefault();
-        clearDragClasses();
-        node.classList.add('drag-over');
-      });
-      node.addEventListener('dragleave', () => {
-        node.classList.remove('drag-over');
-      });
-      node.addEventListener('drop', (event) => {
-        if (dragState.type !== 'scene') return;
-        event.preventDefault();
-        const toChapterIndex = parseIndex(node.getAttribute('data-chapter-index'));
-        const toSceneIndex = parseIndex(node.getAttribute('data-scene-index'));
-        if (
-          dragState.fromChapterIndex === null
-          || dragState.fromSceneIndex === null
-          || toChapterIndex === null
-          || toSceneIndex === null
-        ) {
-          resetDragState();
-          return;
-        }
-        vscode.postMessage({
-          type: 'reorderScene',
-          fromChapterIndex: dragState.fromChapterIndex,
-          fromSceneIndex: dragState.fromSceneIndex,
-          toChapterIndex,
-          toSceneIndex,
-        });
-        resetDragState();
-      });
+    // Keep a short click suppression window to avoid accidental double-activations.
+    document.addEventListener('mouseup', () => {
+      resetClickSuppression();
     });
-
-    document.querySelectorAll('[data-drop-kind="scene-end"]').forEach((node) => {
-      node.addEventListener('dragover', (event) => {
-        if (dragState.type !== 'scene') return;
-        event.preventDefault();
-        clearDragClasses();
-        node.classList.add('drag-over');
-      });
-      node.addEventListener('dragleave', () => {
-        node.classList.remove('drag-over');
-      });
-      node.addEventListener('drop', (event) => {
-        if (dragState.type !== 'scene') return;
-        event.preventDefault();
-        const toChapterIndex = parseIndex(node.getAttribute('data-chapter-index'));
-        const toSceneIndex = parseIndex(node.getAttribute('data-to-scene-index'));
-        if (
-          dragState.fromChapterIndex === null
-          || dragState.fromSceneIndex === null
-          || toChapterIndex === null
-          || toSceneIndex === null
-        ) {
-          resetDragState();
-          return;
-        }
-        vscode.postMessage({
-          type: 'reorderScene',
-          fromChapterIndex: dragState.fromChapterIndex,
-          fromSceneIndex: dragState.fromSceneIndex,
-          toChapterIndex,
-          toSceneIndex,
-        });
-        resetDragState();
-      });
-    });
-
-    document.querySelectorAll('[data-drag-kind="chapter"]').forEach((node) => {
-      node.addEventListener('dragstart', (event) => {
-        const fromChapterIndex = parseIndex(node.getAttribute('data-chapter-index'));
-        if (fromChapterIndex === null) {
-          event.preventDefault();
-          return;
-        }
-        dragState.type = 'chapter';
-        dragState.fromChapterIndex = fromChapterIndex;
-        dragState.fromSceneIndex = null;
-        document.body.classList.add('drag-chapter');
-        if (event.dataTransfer) {
-          event.dataTransfer.effectAllowed = 'move';
-          event.dataTransfer.setData('text/plain', String(fromChapterIndex));
-        }
-      });
-      node.addEventListener('dragend', () => {
-        setTimeout(resetDragState, 0);
-      });
-      node.addEventListener('dragover', (event) => {
-        if (dragState.type !== 'chapter') return;
-        event.preventDefault();
-        clearDragClasses();
-        const chapter = node.closest('[data-chapter-block]');
-        if (chapter) chapter.classList.add('drag-over');
-      });
-      node.addEventListener('dragleave', () => {
-        const chapter = node.closest('[data-chapter-block]');
-        if (chapter) chapter.classList.remove('drag-over');
-      });
-      node.addEventListener('drop', (event) => {
-        if (dragState.type !== 'chapter') return;
-        event.preventDefault();
-        const toChapterIndex = parseIndex(node.getAttribute('data-chapter-index'));
-        if (dragState.fromChapterIndex === null || toChapterIndex === null) {
-          resetDragState();
-          return;
-        }
-        vscode.postMessage({
-          type: 'reorderChapter',
-          fromChapterIndex: dragState.fromChapterIndex,
-          toChapterIndex,
-        });
-        resetDragState();
-      });
-    });
-
-    const chapterEndDrop = document.querySelector('[data-drop-kind="chapter-end"]');
-    if (chapterEndDrop) {
-      chapterEndDrop.addEventListener('dragover', (event) => {
-        if (dragState.type !== 'chapter') return;
-        event.preventDefault();
-        clearDragClasses();
-        chapterEndDrop.classList.add('drag-over');
-      });
-      chapterEndDrop.addEventListener('dragleave', () => {
-        chapterEndDrop.classList.remove('drag-over');
-      });
-      chapterEndDrop.addEventListener('drop', (event) => {
-        if (dragState.type !== 'chapter') return;
-        event.preventDefault();
-        const toChapterIndex = parseIndex(chapterEndDrop.getAttribute('data-to-chapter-index'));
-        if (dragState.fromChapterIndex === null || toChapterIndex === null) {
-          resetDragState();
-          return;
-        }
-        vscode.postMessage({
-          type: 'reorderChapter',
-          fromChapterIndex: dragState.fromChapterIndex,
-          toChapterIndex,
-        });
-        resetDragState();
-      });
-    }
   </script>
 </body>
 </html>`;
@@ -880,13 +552,12 @@ function renderHtml(webview: vscode.Webview, nonce: string, model: SceneCardsMod
 
 function renderChapter(chapter: ChapterCardModel): string {
   return `<section class="chapter" data-chapter-block="true">
-    <header class="chapter-header" draggable="true" data-drag-kind="chapter" data-chapter-index="${chapter.chapterIndex}">
+    <header class="chapter-header">
       <h3>${escapeHtml(chapter.title)}</h3>
       <span class="chapter-count">${chapter.scenes.length} scenes</span>
     </header>
     <div class="cards">
       ${chapter.scenes.map((scene) => renderSceneCard(scene)).join('')}
-      <div class="scene-drop-end" data-drop-kind="scene-end" data-chapter-index="${chapter.chapterIndex}" data-to-scene-index="${chapter.scenes.length}">Drop scene here to append</div>
     </div>
   </section>`;
 }
@@ -900,9 +571,7 @@ function renderSceneCard(scene: SceneCardModel): string {
     .join('');
   return `<button
       class="scene-card"
-      draggable="true"
       data-action="open-scene"
-      data-drag-kind="scene"
       data-chapter-index="${scene.chapterIndex}"
       data-scene-index="${scene.sceneIndex}"
       data-uri="${encodeURIComponent(scene.uri)}"
@@ -968,16 +637,3 @@ function isRelevantDocument(uri: vscode.Uri): boolean {
   return lower.endsWith('.md') || lower.endsWith('.yaml') || lower.endsWith('.yml');
 }
 
-function getConfiguredProjectUri(): vscode.Uri | null {
-  const folder = vscode.workspace.workspaceFolders?.[0];
-  if (!folder) return null;
-  const configured = getProjectFile().trim();
-  if (!configured) return null;
-  const segments = configured.split(/[/\\]/).filter(Boolean);
-  if (segments.length === 0) return null;
-  return vscode.Uri.joinPath(folder.uri, ...segments);
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}

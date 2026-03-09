@@ -5,13 +5,6 @@ import { getManuscript, clearManuscriptCache } from './sceneList';
 import type { ChapterData, ManuscriptData } from './projectYaml';
 import { buildProjectYamlToFile, writeProjectYaml } from './projectFile';
 
-function isIndexYaml(uri: vscode.Uri): boolean {
-  const base = path.basename(uri.fsPath);
-  const ext = path.extname(base).toLowerCase();
-  const stem = base.slice(0, base.length - ext.length);
-  return /^index$/i.test(stem) && (ext === '.yaml' || ext === '.yml');
-}
-
 /** Either our internal node or the TreeItem passed by the view context menu (has label + contextValue). */
 type ChapterNodeOrItem =
   | { type: 'chapter'; chapterIndex: number; label: string; data: ManuscriptData }
@@ -26,7 +19,6 @@ function insertChapterInData(data: ManuscriptData, atIndex: number, chapter: Cha
 
 export function registerAddChapter(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
-    vscode.commands.registerCommand('noveltools.addChapterAbove', (node?: ChapterNodeOrItem) => addChapter(node, 'above')),
     vscode.commands.registerCommand('noveltools.addChapterBelow', (node?: ChapterNodeOrItem) => addChapter(node, 'below')),
     vscode.commands.registerCommand('noveltools.addChapter', () => addChapter(undefined, 'end'))
   );
@@ -52,13 +44,6 @@ async function addChapter(nodeOrItem: ChapterNodeOrItem | undefined, position: '
     result = await getManuscript();
   }
   if (!result.data || !result.projectFileUri) return;
-
-  if (isIndexYaml(result.projectFileUri)) {
-    await vscode.window.showInformationMessage(
-      'Adding chapters is not supported for index-style project files. Use a project file named noveltools.json to use folder-based chapters.'
-    );
-    return;
-  }
 
   let insertIndex: number;
   if (position === 'end') {

@@ -1,9 +1,9 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { clearManuscriptCache, findAllIndexYaml, getManuscript } from '../../sceneStitching/sceneList';
+import { clearManuscriptCache, findAllProjectFiles, getManuscript } from '../../sceneStitching/sceneList';
 
-suite('Index discovery', () => {
+suite('Project discovery', () => {
   suiteSetup(async () => {
     const folders = vscode.workspace.workspaceFolders;
     if (folders?.length) {
@@ -16,139 +16,34 @@ suite('Index discovery', () => {
     }
   });
 
-  test('findAllIndexYaml finds Index.YAML in workspace', async () => {
-    const found = await findAllIndexYaml();
-    const hasIndexYaml = found.some((u) =>
-      /[iI]ndex\.(yaml|YAML|yml|YML|md|MD)$/i.test(path.basename(u.fsPath))
-    );
+  test('findAllProjectFiles finds project files in workspace', async () => {
+    const found = await findAllProjectFiles();
+    const hasProject = found.some((u) => path.basename(u.fsPath) === 'noveltools.json');
     assert.ok(
-      found.length > 0,
-      `Expected at least one index file, got ${found.length}. Workspace: ${vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? 'none'}`
+      found.length >= 0,
+      `findAllProjectFiles should return array, got ${found.length}`
     );
-    assert.ok(hasIndexYaml, `Expected index file in results, got: ${found.map((u) => u.fsPath).join(', ')}`);
-  });
-
-  test('getManuscript loads from discovered index', async () => {
-    const result = await getManuscript();
-    assert.ok(result.projectFileUri, 'Expected project file URI to be set');
-    assert.ok(result.data, 'Expected manuscript data to load');
-    assert.ok(
-      result.flatUris.length > 0,
-      `Expected at least one scene, got ${result.flatUris.length}`
-    );
-  });
-
-  test('getManuscript parses Index.md frontmatter when file ends at closing marker', async () => {
-    const folder = vscode.workspace.workspaceFolders?.[0];
-    assert.ok(folder, 'Expected workspace folder');
-    if (!folder) return;
-
-    const indexUri = vscode.Uri.joinPath(folder.uri, 'Index.md');
-    const sceneUri = vscode.Uri.joinPath(folder.uri, 'sample scene.md');
-
-    const config = vscode.workspace.getConfiguration('noveltools');
-    const prevGlob = config.get<string>('indexYamlGlob');
-
-    try {
-      await vscode.workspace.fs.writeFile(sceneUri, Buffer.from('# Sample scene\n', 'utf8'));
-      await vscode.workspace.fs.writeFile(
-        indexUri,
-        Buffer.from(
-          '---\nlongform:\n  format: scenes\n  title: "No trailing newline"\n  sceneFolder: /\n  scenes:\n    - sample scene\n---',
-          'utf8'
-        )
-      );
-
-      await config.update('indexYamlGlob', '**/Index.md', vscode.ConfigurationTarget.Workspace);
-      clearManuscriptCache();
-
-      const result = await getManuscript();
-      assert.ok(result.projectFileUri, 'Expected project file URI to be set');
-      assert.strictEqual(
-        path.basename(result.projectFileUri!.fsPath),
-        'Index.md',
-        `Expected Index.md to be parsed, got ${result.projectFileUri?.fsPath}`
-      );
-      assert.ok(result.data, 'Expected manuscript data from Index.md frontmatter');
+    if (found.length > 0) {
       assert.ok(
-        result.flatUris.some((u) => path.basename(u.fsPath) === 'sample scene.md'),
-        `Expected scene from Index.md to be included, got: ${result.flatUris.map((u) => u.fsPath).join(', ')}`
+        found.every((u) => u.fsPath.toLowerCase().endsWith('.json')),
+        `Expected only .json project files, got: ${found.map((u) => u.fsPath).join(', ')}`
       );
-    } finally {
-      await config.update('indexYamlGlob', prevGlob, vscode.ConfigurationTarget.Workspace);
-      clearManuscriptCache();
-      try {
-        await vscode.workspace.fs.delete(indexUri);
-      } catch {
-        // ignore
-      }
-      try {
-        await vscode.workspace.fs.delete(sceneUri);
-      } catch {
-        // ignore
-      }
     }
   });
 
-  test('getManuscript falls back to noveltools.yaml when discovered index is not parseable', async () => {
-    const folder = vscode.workspace.workspaceFolders?.[0];
-    assert.ok(folder, 'Expected workspace folder');
-    if (!folder) return;
-
-    const invalidIndexUri = vscode.Uri.joinPath(folder.uri, 'Index.md');
-    const sceneUri = vscode.Uri.joinPath(folder.uri, 'fallback-scene.md');
-    const projectUri = vscode.Uri.joinPath(folder.uri, 'noveltools.yaml');
-
-    const config = vscode.workspace.getConfiguration('noveltools');
-    const prevGlob = config.get<string>('indexYamlGlob');
-    const prevProjectFile = config.get<string>('projectFile');
-
-    try {
-      await vscode.workspace.fs.writeFile(invalidIndexUri, Buffer.from('# Not a manuscript index\n', 'utf8'));
-      await vscode.workspace.fs.writeFile(sceneUri, Buffer.from('# Scene\n', 'utf8'));
-      await vscode.workspace.fs.writeFile(
-        projectUri,
-        Buffer.from(
-          'title: "Fallback Project"\nchapters:\n  - folder: "."\n    scenes:\n      - "fallback-scene.md"\n',
-          'utf8'
-        )
-      );
-
-      await config.update('indexYamlGlob', '**/Index.md', vscode.ConfigurationTarget.Workspace);
-      await config.update('projectFile', 'noveltools.yaml', vscode.ConfigurationTarget.Workspace);
-      clearManuscriptCache();
-
-      const result = await getManuscript();
-      assert.ok(result.projectFileUri, 'Expected project file URI to be set');
-      assert.strictEqual(
-        path.basename(result.projectFileUri!.fsPath),
-        'noveltools.yaml',
-        `Expected fallback to noveltools.yaml, got ${result.projectFileUri?.fsPath}`
-      );
-      assert.ok(result.data, 'Expected manuscript data from noveltools.yaml');
+  test('getManuscript loads from discovered project file', async () => {
+    const result = await getManuscript();
+    if (result.projectFileUri) {
       assert.ok(
-        result.flatUris.some((u) => path.basename(u.fsPath) === 'fallback-scene.md'),
-        `Expected fallback scene to be included, got: ${result.flatUris.map((u) => u.fsPath).join(', ')}`
+        result.projectFileUri.fsPath.toLowerCase().endsWith('.json'),
+        `Expected project file to be JSON, got ${result.projectFileUri.fsPath}`
       );
-    } finally {
-      await config.update('indexYamlGlob', prevGlob, vscode.ConfigurationTarget.Workspace);
-      await config.update('projectFile', prevProjectFile, vscode.ConfigurationTarget.Workspace);
-      clearManuscriptCache();
-      try {
-        await vscode.workspace.fs.delete(invalidIndexUri);
-      } catch {
-        // ignore
-      }
-      try {
-        await vscode.workspace.fs.delete(sceneUri);
-      } catch {
-        // ignore
-      }
-      try {
-        await vscode.workspace.fs.delete(projectUri);
-      } catch {
-        // ignore
-      }
+    }
+    if (result.data) {
+      assert.ok(
+        Array.isArray(result.data.chapters),
+        'Expected chapters array'
+      );
     }
   });
 

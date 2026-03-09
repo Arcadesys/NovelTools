@@ -14,10 +14,6 @@ import {
   reorderChapters,
   removeScene as removeSceneInData,
   removeChapter as removeChapterInData,
-  parseLongformStrict,
-  parseLongformIndexYaml,
-  scenePathsRelativeTo,
-  serializeToJson,
 } from './projectYaml';
 import { buildProjectYamlToFile, writeProjectYaml } from './projectFile';
 import type { ManuscriptData, SceneStatus } from './projectYaml';
@@ -72,18 +68,6 @@ interface SceneNode {
   data: ManuscriptData;
 }
 
-const STATUS_EMOJI: Record<SceneStatus, string> = {
-  done: '🟢',
-  drafted: '🟡',
-  spiked: '🔴',
-};
-
-const STATUS_ICON: Record<SceneStatus, string> = {
-  done: 'pass-filled',
-  drafted: 'pencil',
-  spiked: 'circle-slash',
-};
-
 function formatSceneCount(count: number): string {
   return `${count} ${count === 1 ? 'scene' : 'scenes'}`;
 }
@@ -128,10 +112,8 @@ function getTreeItemLabel(node: TreeNode): string {
       return node.label;
     case 'chapter':
       return node.label;
-    case 'scene': {
-      const prefix = node.status ? `${STATUS_EMOJI[node.status]} ` : '';
-      return `${prefix}${node.label}`;
-    }
+    case 'scene':
+      return node.label;
   }
 }
 
@@ -229,114 +211,6 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('noveltools.convertLongformToProjectYaml', async () => {
-      const folders = vscode.workspace.workspaceFolders;
-      if (!folders?.length) {
-        await vscode.window.showInformationMessage('Open a workspace folder first.');
-        return;
-      }
-      let sourceUri: vscode.Uri | undefined;
-      const activeDoc = vscode.window.activeTextEditor?.document;
-      const activeName = activeDoc?.uri.path.split(/[/\\]/).pop() ?? '';
-      const isIndexLike = /index\.(yaml|yml|md)$/i.test(activeName) || activeName.endsWith('manuscript.yaml');
-      if (activeDoc && isIndexLike && vscode.workspace.getWorkspaceFolder(activeDoc.uri)) {
-        sourceUri = activeDoc.uri;
-      }
-      if (!sourceUri) {
-        const allIndex = await findAllIndexYaml();
-        if (allIndex.length === 0) {
-          await vscode.window.showInformationMessage(
-            'No index files found. Create or open a Longform index (e.g. Index.YAML or index.yaml) and try again.'
-          );
-          return;
-        }
-        const picked = await vscode.window.showQuickPick(
-          allIndex.map((u) => ({
-            label: vscode.workspace.asRelativePath(u),
-            uri: u,
-          })),
-          { title: 'Select a Longform index to convert', matchOnDescription: true }
-        );
-        if (!picked) return;
-        sourceUri = picked.uri;
-      }
-      const bytes = await vscode.workspace.fs.readFile(sourceUri);
-      const content = new TextDecoder().decode(bytes);
-      const data = parseLongformStrict(content, sourceUri) ?? parseLongformIndexYaml(content, sourceUri);
-      if (!data || data.flatUris.length === 0) {
-        await vscode.window.showWarningMessage(
-          "This file doesn't appear to be a Longform index, or it has no scenes. Use a file with longform frontmatter and a scenes list."
-        );
-        return;
-      }
-      const name = getProjectFile();
-      const segments = name.split(/[/\\]/);
-      const targetUri =
-        segments.length > 1
-          ? vscode.Uri.joinPath(folders[0].uri, ...segments)
-          : vscode.Uri.joinPath(folders[0].uri, name);
-      try {
-        await vscode.workspace.fs.stat(targetUri);
-        const overwrite = await vscode.window.showWarningMessage(
-          `"${vscode.workspace.asRelativePath(targetUri)}" already exists. Overwrite with converted project file?`,
-          { modal: true },
-          'Overwrite'
-        );
-        if (overwrite !== 'Overwrite') return;
-      } catch {
-        // file doesn't exist, proceed
-      }
-      const dataForNovelTools: ManuscriptData = {
-        ...data,
-        longformMeta: undefined,
-        projectFileUri: targetUri,
-      };
-      await buildProjectYamlToFile(targetUri, dataForNovelTools);
-      await setActiveProjectUri(targetUri);
-      clearManuscriptCache();
-      treeDataProvider.refresh();
-      await vscode.window.showInformationMessage(
-        `Converted Longform index to ${vscode.workspace.asRelativePath(targetUri)}. You can now use it as your project file.`
-      );
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('noveltools.convertProjectToJson', async () => {
-      const result = await getManuscript();
-      if (!result.projectFileUri || !result.data) {
-        await vscode.window.showInformationMessage('No project file loaded. Open or create a project first.');
-        return;
-      }
-      const uri = result.projectFileUri;
-      if (uri.fsPath.toLowerCase().endsWith('.json')) {
-        await vscode.window.showInformationMessage('Project is already JSON.');
-        return;
-      }
-      if (!uri.fsPath.endsWith('.yaml') && !uri.fsPath.endsWith('.yml')) {
-        await vscode.window.showInformationMessage('Current project file is not YAML. Convert only applies to .yaml/.yml files.');
-        return;
-      }
-      const dir = vscode.Uri.joinPath(uri, '..');
-      const jsonUri = vscode.Uri.joinPath(dir, 'noveltools.json');
-      const baseDir = vscode.Uri.joinPath(uri, '..');
-      const chapters = result.data.chapters.map((ch) => ({
-        ...ch,
-        scenePaths: scenePathsRelativeTo(baseDir, ch.sceneUris),
-      }));
-      const dataForWrite: ManuscriptData = { ...result.data, chapters, projectFileUri: jsonUri };
-      const json = serializeToJson(dataForWrite, baseDir);
-      await vscode.workspace.fs.writeFile(jsonUri, Buffer.from(json, 'utf8'));
-      await setActiveProjectUri(jsonUri);
-      clearManuscriptCache();
-      treeDataProvider.refresh();
-      await vscode.window.showInformationMessage(
-        `Saved as ${vscode.workspace.asRelativePath(jsonUri)}. You can remove the old YAML file if desired.`
-      );
-    })
-  );
-
-  context.subscriptions.push(
     vscode.commands.registerCommand('noveltools.openProjectYaml', async () => {
       try {
       // #region agent log
@@ -395,7 +269,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
         canSelectMany: false,
         openLabel: 'Open Project File',
         filters: {
-          'YAML files': ['yaml', 'yml', 'YAML', 'YML'],
+          'Project (JSON)': ['json'],
           'All files': ['*']
         },
         title: 'Select Project File (e.g. noveltools.json)'
@@ -1102,12 +976,8 @@ class ManuscriptTreeDataProvider
     }
     if (element.type === 'scene') {
       const rel = vscode.workspace.asRelativePath(element.uri);
-      if (element.status) {
-        item.iconPath = new vscode.ThemeIcon(STATUS_ICON[element.status]);
-        item.description = element.status;
-      }
       const tooltip = new vscode.MarkdownString(undefined, true);
-      tooltip.appendMarkdown(`**${element.label}**\n\n`);
+      tooltip.appendMarkdown(`${element.label}\n\n`);
       tooltip.appendCodeblock(rel);
       item.tooltip = tooltip;
     }

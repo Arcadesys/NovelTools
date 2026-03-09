@@ -1,9 +1,8 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { getProjectFile, getSceneFiles, getSceneGlob, getChapterGrouping, getIndexYamlGlob } from '../config';
-import { parseProjectYaml, parseProjectJson, parseIndexYaml, parseLongformIndexYaml, parseLongformStrict, resolveChapterFolders, type ManuscriptData, type ChapterData } from './projectYaml';
+import { getProjectFile, getSceneFiles, getSceneGlob, getChapterGrouping } from '../config';
+import { parseProjectJson, resolveChapterFolders, type ManuscriptData, type ChapterData } from './projectYaml';
 
-const INDEX_YAML = 'index.yaml';
 const ACTIVE_PROJECT_URI_KEY = 'noveltools.activeProjectUri';
 
 let extensionContext: vscode.ExtensionContext | null = null;
@@ -93,43 +92,24 @@ export async function setActiveProjectUri(uri: vscode.Uri): Promise<void> {
   await extensionContext.workspaceState.update(ACTIVE_PROJECT_URI_KEY, uri.toString());
 }
 
-/** Fallback globs when the configured glob finds nothing (handles brace-expansion edge cases). */
-const FALLBACK_INDEX_GLOBS = [
-  '**/Index.YAML',
-  '**/Index.yaml',
-  '**/index.yaml',
-  '**/Index.md',
-  '**/index.md',
-  '**/*[iI]ndex*.yaml',
-  '**/*[iI]ndex*.md',
-];
-
-/** Find all index.yaml files matching the configured glob. */
-export async function findAllIndexYaml(): Promise<vscode.Uri[]> {
-  // #region agent log
-  const glob = getIndexYamlGlob();
+/** Find all project files (e.g. noveltools.json) in the workspace. */
+export async function findAllProjectFiles(): Promise<vscode.Uri[]> {
+  const name = getProjectFile().trim();
+  if (!name) return [];
+  const baseName = path.basename(name);
+  const glob = `**/${baseName}`;
   let found: vscode.Uri[] = [];
   try {
     found = await vscode.workspace.findFiles(glob);
   } catch {
     found = [];
   }
-  if (found.length === 0) {
-    for (const fallback of FALLBACK_INDEX_GLOBS) {
-      try {
-        const extra = await vscode.workspace.findFiles(fallback);
-        found = [...found, ...extra];
-      } catch {
-        // continue
-      }
-    }
-  }
   const unique = Array.from(new Map(found.map((u) => [u.fsPath, u])).values());
-  const sorted = unique.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
-  fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'sceneList.ts:findAllIndexYaml',message:'Index files found',data:{count:sorted.length,paths:sorted.map(u=>vscode.workspace.asRelativePath(u))},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-  return sorted;
-  // #endregion
+  return unique.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
 }
+
+/** @deprecated Use findAllProjectFiles. */
+export const findAllIndexYaml = findAllProjectFiles;
 
 async function findProjectFile(): Promise<vscode.Uri | null> {
   const name = getProjectFile();
@@ -157,41 +137,18 @@ async function findProjectFile(): Promise<vscode.Uri | null> {
   return null;
 }
 
-function isIndexYaml(uri: vscode.Uri): boolean {
-  const base = path.basename(uri.fsPath);
-  const ext = path.extname(uri.fsPath).toLowerCase();
-  const stem = base.slice(0, base.length - ext.length);
-  return /^index$/i.test(stem) && (ext === '.yaml' || ext === '.yml');
-}
-
 async function loadFromProjectFile(uri: vscode.Uri): Promise<ManuscriptResult> {
-  // #region agent log
   const bytes = await vscode.workspace.fs.readFile(uri);
   const content = new TextDecoder().decode(bytes);
-  const strict = parseLongformStrict(content, uri);
-  const index = parseIndexYaml(content, uri);
-  const longform = parseLongformIndexYaml(content, uri);
-  // Prefer project format for non-index files (noveltools.json or noveltools.yaml).
-  const isJson = uri.fsPath.toLowerCase().endsWith('.json');
-  const projectData = !isIndexYaml(uri)
-    ? (isJson ? parseProjectJson(content, uri) : parseProjectYaml(content, uri))
-    : null;
-  let data: ManuscriptData | null = projectData ?? strict ?? index ?? longform;
-  const usedProjectFile = !!projectData && data === projectData;
+  let data: ManuscriptData | null = parseProjectJson(content, uri);
   if (data?.chapters.some((ch) => ch.folderPath)) {
     const baseDir = vscode.Uri.joinPath(uri, '..');
     data = await resolveChapterFolders(data, baseDir);
   }
-  const relativePath = vscode.workspace.asRelativePath(uri);
-  const whichParser = usedProjectFile ? 'project' : strict ? 'strict' : index ? 'index' : longform ? 'longform' : 'none';
-  // #region agent log
-  fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'sceneList.ts:loadFromProjectFile',message:'Parse result',data:{uri:relativePath,contentLen:content.length,strictOk:!!strict,indexOk:!!index,longformOk:!!longform,dataOk:!!data,whichParser,chaptersCount:data?.chapters?.length ?? 0,sceneCounts:data?.chapters?.map(c=>c.sceneUris?.length ?? 0)},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-  // #endregion
   if (data) {
     return { data, flatUris: data.flatUris, projectFileUri: uri };
   }
   return { data: null, flatUris: [], projectFileUri: uri };
-  // #endregion
 }
 
 async function loadFromConfig(): Promise<ManuscriptResult> {
@@ -260,18 +217,20 @@ export async function getManuscript(projectFileUri?: vscode.Uri): Promise<Manusc
     return getManuscriptByUri(projectFileUri);
   }
 
-  const allIndex = await findAllIndexYaml();
-  // #region agent log
-  fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'sceneList.ts:getManuscript',message:'Resolution branch',data:{allIndexCount:allIndex.length,allIndexPaths:allIndex.map(u=>vscode.workspace.asRelativePath(u))},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-  // #endregion
-  if (allIndex.length > 0) {
-    const activeUri = await getActiveProjectUri();
+  const activeUri = await getActiveProjectUri();
+  if (activeUri) {
+    const result = await getManuscriptByUri(activeUri);
+    if (result.data) return result;
+  }
+
+  const allProject = await findAllProjectFiles();
+  if (allProject.length > 0) {
     const prioritized = activeUri
       ? [
-          ...allIndex.filter((u) => u.toString() === activeUri.toString()),
-          ...allIndex.filter((u) => u.toString() !== activeUri.toString()),
+          ...allProject.filter((u) => u.toString() === activeUri.toString()),
+          ...allProject.filter((u) => u.toString() !== activeUri.toString()),
         ]
-      : allIndex;
+      : allProject;
     for (const uri of prioritized) {
       const result = await getManuscriptByUri(uri);
       if (result.data) return result;
@@ -279,9 +238,6 @@ export async function getManuscript(projectFileUri?: vscode.Uri): Promise<Manusc
   }
 
   const singleUri = await findProjectFile();
-  // #region agent log
-  fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'sceneList.ts:getManuscript',message:'findProjectFile result',data:{usedProjectFile:!!singleUri,projectFileRelative:singleUri?vscode.workspace.asRelativePath(singleUri):null},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-  // #endregion
   if (singleUri) {
     return getManuscriptByUri(singleUri);
   }
@@ -292,9 +248,6 @@ export async function getManuscript(projectFileUri?: vscode.Uri): Promise<Manusc
     result = await loadFromConfig();
     cacheByUri.set(configKey, result);
   }
-  // #region agent log
-  fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'sceneList.ts:getManuscript',message:'Final result',data:{source:allIndex.length>=1?'index':'config',projectFileRelative:result.projectFileUri?vscode.workspace.asRelativePath(result.projectFileUri):null,chaptersCount:result.data?.chapters?.length??0,sceneCounts:result.data?.chapters?.map(c=>c.sceneUris?.length??0)},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
-  // #endregion
   return result;
 }
 

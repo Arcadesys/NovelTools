@@ -28,7 +28,6 @@
     "onCommand:noveltools.openStitchedManuscript",
     "onCommand:noveltools.openProjectYaml",
     "onCommand:noveltools.buildProjectYaml",
-    "onCommand:noveltools.convertLongformToProjectYaml",
     "onCommand:noveltools.showQuickStart",
     "onCommand:noveltools.openSettings"
   ],
@@ -154,11 +153,6 @@
         "icon": "$(arrow-down)"
       },
       {
-        "command": "noveltools.addSceneAbove",
-        "title": "NovelTools: Add Scene Above",
-        "icon": "$(add)"
-      },
-      {
         "command": "noveltools.addSceneBelow",
         "title": "NovelTools: Add Scene Below",
         "icon": "$(add)"
@@ -166,11 +160,6 @@
       {
         "command": "noveltools.addChapter",
         "title": "NovelTools: Add Chapter",
-        "icon": "$(add)"
-      },
-      {
-        "command": "noveltools.addChapterAbove",
-        "title": "NovelTools: Add Chapter Above",
         "icon": "$(add)"
       },
       {
@@ -250,16 +239,6 @@
         "icon": "$(new-file)"
       },
       {
-        "command": "noveltools.convertLongformToProjectYaml",
-        "title": "NovelTools: Convert Longform to Project",
-        "icon": "$(file-symlink-file)"
-      },
-      {
-        "command": "noveltools.convertProjectToJson",
-        "title": "NovelTools: Convert Project to JSON",
-        "icon": "$(file-code)"
-      },
-      {
         "command": "noveltools.openProjectYaml",
         "title": "NovelTools: Open Project File",
         "icon": "$(go-to-file)"
@@ -314,7 +293,7 @@
     "viewsWelcome": [
       {
         "view": "noveltools.manuscript",
-        "contents": "# Welcome to NovelTools\n\nVersion: **v1.1.2**\n\nThe **scene outline** (chapters and scenes) opens in the **editor** area, not here.\n\n- $(list-tree) [Open Scene Outline](command:noveltools.openSceneOutline) — opens the outline in an editor tab\n- $(book) [Open Stitched Manuscript](command:noveltools.openStitchedManuscript)\n- $(go-to-file) [Open Project File](command:noveltools.openProjectYaml)\n- $(new-file) [Build Project YAML](command:noveltools.buildProjectYaml)\n- $(file-symlink-file) [Convert Longform to Project](command:noveltools.convertLongformToProjectYaml)\n\nIn the outline you can expand/collapse chapters, click scenes to open them, and use the toolbar for Refresh, Open Project File, and Open Stitched.\n\n[Quick Start Guide](command:noveltools.showQuickStart) | [Settings](command:noveltools.openSettings)"
+        "contents": "# Welcome to NovelTools\n\nThe **Manuscript** tree is the main organizer. Drag chapters and scenes to reorder.\n\n- $(go-to-file) [Open Project File](command:noveltools.openProjectYaml) — open a project file (e.g. noveltools.json)\n- $(new-file) [Build Project](command:noveltools.buildProjectYaml) — create a project from your markdown scenes\n- $(list-tree) [Open Scene Outline](command:noveltools.openSceneOutline)\n- $(book) [Open Stitched Manuscript](command:noveltools.openStitchedManuscript)\n\n[Quick Start](command:noveltools.showQuickStart) | [Settings](command:noveltools.openSettings)"
       }
     ],
     "menus": {
@@ -357,11 +336,6 @@
           "group": "navigation"
         },
         {
-          "command": "noveltools.addChapterAbove",
-          "when": "view == noveltools.manuscript && viewItem == chapter",
-          "group": "inline@0"
-        },
-        {
           "command": "noveltools.addChapterBelow",
           "when": "view == noveltools.manuscript && viewItem == chapter",
           "group": "inline@0"
@@ -402,24 +376,19 @@
           "group": "status@0"
         },
         {
-          "command": "noveltools.addSceneAbove",
-          "when": "view == noveltools.manuscript && viewItem == scene",
-          "group": "inline@0"
-        },
-        {
           "command": "noveltools.addSceneBelow",
           "when": "view == noveltools.manuscript && viewItem == scene",
-          "group": "inline@0"
+          "group": "inline@9"
         },
         {
           "command": "noveltools.moveSceneUp",
           "when": "view == noveltools.manuscript && viewItem == scene",
-          "group": "navigation@1"
+          "group": "navigation@9"
         },
         {
           "command": "noveltools.moveSceneDown",
           "when": "view == noveltools.manuscript && viewItem == scene",
-          "group": "navigation@1"
+          "group": "navigation@9"
         },
         {
           "command": "noveltools.openStitchedSelection",

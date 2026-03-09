@@ -18,12 +18,11 @@ type SceneNode = {
 
 export function registerAddScene(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
-    vscode.commands.registerCommand('noveltools.addSceneAbove', (node?: SceneNode) => addScene(node, 'above')),
-    vscode.commands.registerCommand('noveltools.addSceneBelow', (node?: SceneNode) => addScene(node, 'below'))
+    vscode.commands.registerCommand('noveltools.addSceneBelow', (node?: SceneNode) => addScene(node))
   );
 }
 
-async function addScene(node: SceneNode | undefined, position: 'above' | 'below'): Promise<void> {
+async function addScene(node: SceneNode | undefined): Promise<void> {
   let result = await getManuscript();
   if (!result.data) {
     await vscode.window.showInformationMessage('No manuscript found. Build or open a project file first.');
@@ -91,7 +90,7 @@ async function addScene(node: SceneNode | undefined, position: 'above' | 'below'
 
   // Prompt for the new scene filename
   const filename = await vscode.window.showInputBox({
-    title: `Add Scene ${position === 'above' ? 'Above' : 'Below'}`,
+    title: 'Add Scene',
     prompt: `Enter a filename for the new scene (in ${defaultDir === '.' ? 'project root' : defaultDir}/)`,
     placeHolder: 'new-scene.md',
     validateInput: (value) => {
@@ -119,7 +118,7 @@ async function addScene(node: SceneNode | undefined, position: 'above' | 'below'
   const [relPath] = scenePathsRelativeTo(baseDir, [sceneUri]);
 
   // Insert at the correct position
-  const insertIdx = position === 'above' ? sceneIdx : sceneIdx + 1;
+  const insertIdx = sceneIdx + 1;
   const updated = insertSceneInData(result.data, chapterIdx, insertIdx, sceneUri, relPath);
 
   await writeProjectYaml(result.projectFileUri, updated);
