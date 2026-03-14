@@ -198,9 +198,24 @@
         "icon": "$(pencil)"
       },
       {
+        "command": "noveltools.setSectionStatusRevision",
+        "title": "Set status: Revision",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "noveltools.setSectionStatusReview",
+        "title": "Set status: Review",
+        "icon": "$(eye)"
+      },
+      {
         "command": "noveltools.setSectionStatusSpiked",
         "title": "Set status: Spiked out",
         "icon": "$(circle-slash)"
+      },
+      {
+        "command": "noveltools.setSectionStatusCut",
+        "title": "Set status: Cut",
+        "icon": "$(close)"
       },
       {
         "command": "noveltools.clearSectionStatus",
@@ -383,7 +398,22 @@
           "group": "status@0"
         },
         {
+          "command": "noveltools.setSectionStatusRevision",
+          "when": "view == noveltools.manuscript && viewItem == scene",
+          "group": "status@0"
+        },
+        {
+          "command": "noveltools.setSectionStatusReview",
+          "when": "view == noveltools.manuscript && viewItem == scene",
+          "group": "status@0"
+        },
+        {
           "command": "noveltools.setSectionStatusSpiked",
+          "when": "view == noveltools.manuscript && viewItem == scene",
+          "group": "status@0"
+        },
+        {
+          "command": "noveltools.setSectionStatusCut",
           "when": "view == noveltools.manuscript && viewItem == scene",
           "group": "status@0"
         },

@@ -11,7 +11,7 @@ export function scenePathsRelativeTo(baseDir: vscode.Uri, sceneUris: vscode.Uri[
   });
 }
 
-export type SceneStatus = 'done' | 'drafted' | 'spiked';
+export type SceneStatus = 'drafted' | 'revision' | 'review' | 'done' | 'spiked' | 'cut';
 
 export interface ChapterData {
   title?: string;
@@ -30,7 +30,7 @@ export interface ManuscriptData {
   chapters: ChapterData[];
   flatUris: vscode.Uri[];
   projectFileUri: vscode.Uri | null;
-  /** Per-section status: key = relative path (forward slashes), value = done | drafted | spiked. */
+  /** Per-section status: key = relative path (forward slashes). */
   sceneStatus?: Record<string, SceneStatus>;
   /** Per-scene metadata: key = relative path (forward slashes). */
   sceneMetadata?: Record<string, SceneMetadataEntry>;
@@ -133,7 +133,7 @@ function rawToManuscriptData(raw: RawManuscript, projectFileUri: vscode.Uri): Ma
   if (rawStatus && typeof rawStatus === 'object' && !Array.isArray(rawStatus)) {
     sceneStatus = {};
     for (const [k, v] of Object.entries(rawStatus)) {
-      if (v === 'done' || v === 'drafted' || v === 'spiked') sceneStatus[k] = v;
+      if (v === 'drafted' || v === 'revision' || v === 'review' || v === 'done' || v === 'spiked' || v === 'cut') sceneStatus[k] = v;
     }
     if (Object.keys(sceneStatus).length === 0) sceneStatus = undefined;
   }

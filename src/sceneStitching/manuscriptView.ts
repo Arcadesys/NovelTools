@@ -68,6 +68,29 @@ interface SceneNode {
   data: ManuscriptData;
 }
 
+const STATUS_LABEL: Record<SceneStatus, string> = {
+  drafted: 'Drafted',
+  revision: 'Revision',
+  review: 'Review',
+  done: 'Done',
+  spiked: 'Spiked',
+  cut: 'Cut',
+};
+
+const STATUS_ICON: Record<SceneStatus, { id: string; color: string }> = {
+  drafted: { id: 'pencil', color: 'testing.iconQueued' },
+  revision: { id: 'edit', color: 'charts.blue' },
+  review: { id: 'eye', color: 'charts.orange' },
+  done: { id: 'pass-filled', color: 'testing.iconPassed' },
+  spiked: { id: 'circle-slash', color: 'testing.iconFailed' },
+  cut: { id: 'close', color: 'descriptionForeground' },
+};
+
+function statusThemeIcon(status: SceneStatus): vscode.ThemeIcon {
+  const info = STATUS_ICON[status];
+  return new vscode.ThemeIcon(info.id, new vscode.ThemeColor(info.color));
+}
+
 function formatSceneCount(count: number): string {
   return `${count} ${count === 1 ? 'scene' : 'scenes'}`;
 }
@@ -892,8 +915,23 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
     )
   );
   context.subscriptions.push(
+    vscode.commands.registerCommand('noveltools.setSectionStatusRevision', (nodeOrItem?: TreeNode | vscode.TreeItem) =>
+      applySectionStatus(nodeOrItem, 'revision')
+    )
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('noveltools.setSectionStatusReview', (nodeOrItem?: TreeNode | vscode.TreeItem) =>
+      applySectionStatus(nodeOrItem, 'review')
+    )
+  );
+  context.subscriptions.push(
     vscode.commands.registerCommand('noveltools.setSectionStatusSpiked', (nodeOrItem?: TreeNode | vscode.TreeItem) =>
       applySectionStatus(nodeOrItem, 'spiked')
+    )
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('noveltools.setSectionStatusCut', (nodeOrItem?: TreeNode | vscode.TreeItem) =>
+      applySectionStatus(nodeOrItem, 'cut')
     )
   );
   context.subscriptions.push(
@@ -963,9 +1001,12 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       }
       const choice = await vscode.window.showQuickPick(
         [
-          { label: '🟢 Done', value: 'done' as SceneStatus },
           { label: '🟡 Drafted', value: 'drafted' as SceneStatus },
-          { label: '🔴 Spiked out', value: 'spiked' as SceneStatus },
+          { label: '🔵 Revision', value: 'revision' as SceneStatus },
+          { label: '🟠 Review', value: 'review' as SceneStatus },
+          { label: '🟢 Done', value: 'done' as SceneStatus },
+          { label: '🔴 Spiked', value: 'spiked' as SceneStatus },
+          { label: '⚫ Cut', value: 'cut' as SceneStatus },
           { label: '$(clear) Clear status', value: null },
         ],
         { title: 'Set section status', placeHolder: selection.label }
@@ -1077,11 +1118,16 @@ class ManuscriptTreeDataProvider
       const scenePath = element.data.chapters[element.chapterIndex]?.scenePaths[element.sceneIndex];
       const pathKey = scenePath?.split(path.sep).join('/');
       const synopsis = pathKey ? element.data.sceneMetadata?.[pathKey]?.synopsis : undefined;
+      const status = element.status;
+      if (status) {
+        item.iconPath = statusThemeIcon(status);
+      }
       if (synopsis) {
         item.description = synopsis;
       }
       const tooltip = new vscode.MarkdownString(undefined, true);
       tooltip.appendMarkdown(`${element.label}\n\n`);
+      if (status) tooltip.appendMarkdown(`**Status:** ${STATUS_LABEL[status]}\n\n`);
       if (synopsis) tooltip.appendMarkdown(`*${synopsis}*\n\n`);
       tooltip.appendCodeblock(rel);
       item.tooltip = tooltip;

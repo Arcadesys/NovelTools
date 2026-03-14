@@ -12,15 +12,21 @@ import {
 const VIEW_ID = 'noveltools.sceneCards';
 
 const STATUS_LABEL: Record<SceneStatus, string> = {
-  done: 'Done',
   drafted: 'Drafted',
+  revision: 'Revision',
+  review: 'Review',
+  done: 'Done',
   spiked: 'Spiked',
+  cut: 'Cut',
 };
 
 const STATUS_CLASS: Record<SceneStatus, string> = {
-  done: 'status-done',
   drafted: 'status-drafted',
+  revision: 'status-revision',
+  review: 'status-review',
+  done: 'status-done',
   spiked: 'status-spiked',
+  cut: 'status-cut',
 };
 
 const COMMAND_WHITELIST = new Set([
@@ -470,17 +476,29 @@ function renderHtml(webview: vscode.Webview, nonce: string, model: SceneCardsMod
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
-    .status-done {
-      border-color: var(--vscode-testing-iconPassed);
-      color: var(--vscode-testing-iconPassed);
-    }
     .status-drafted {
       border-color: var(--vscode-testing-iconQueued);
       color: var(--vscode-testing-iconQueued);
     }
+    .status-revision {
+      border-color: var(--vscode-charts-blue);
+      color: var(--vscode-charts-blue);
+    }
+    .status-review {
+      border-color: var(--vscode-charts-orange);
+      color: var(--vscode-charts-orange);
+    }
+    .status-done {
+      border-color: var(--vscode-testing-iconPassed);
+      color: var(--vscode-testing-iconPassed);
+    }
     .status-spiked {
       border-color: var(--vscode-testing-iconFailed);
       color: var(--vscode-testing-iconFailed);
+    }
+    .status-cut {
+      border-color: var(--vscode-descriptionForeground);
+      color: var(--vscode-descriptionForeground);
     }
     .empty-panel {
       border: 1px dashed var(--nt-border);

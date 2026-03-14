@@ -29,9 +29,12 @@ interface OutlineModel {
 }
 
 const STATUS_EMOJI: Record<SceneStatus, string> = {
-  done: '🟢',
   drafted: '🟡',
+  revision: '🔵',
+  review: '🟠',
+  done: '🟢',
   spiked: '🔴',
+  cut: '⚫',
 };
 
 const COMMAND_WHITELIST = new Set([
