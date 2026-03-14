@@ -49,11 +49,11 @@ suite('countWords', () => {
     assert.strictEqual(count, 4);
   });
 
-  test('strips inline code', () => {
+  test('strips inline code but counts content', () => {
     const text = 'Use `console.log` for debugging.';
     const count = countWords(text, true);
-    // After strip: "Use  for debugging." = 3
-    assert.strictEqual(count, 3);
+    // After strip: "Use console.log for debugging." = 5
+    assert.strictEqual(count, 5);
   });
 
   test('strips bold markers', () => {
