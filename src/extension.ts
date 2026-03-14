@@ -15,6 +15,7 @@ import { registerMigrateToJson } from './sceneStitching/migrateToJson';
 import { registerMetadataPanel } from './sceneStitching/metadataPanel';
 import { registerOutlineView } from './sceneStitching/outlineView';
 import { registerCompile } from './sceneStitching/compile';
+import { registerAiWorkflows } from './sceneStitching/aiWorkflows';
 
 function safeRegister(name: string, fn: () => void): void {
   try {
@@ -43,6 +44,7 @@ export function activate(context: vscode.ExtensionContext): void {
   safeRegister('Metadata Panel', () => registerMetadataPanel(context));
   safeRegister('Outline View', () => registerOutlineView(context));
   safeRegister('Compile', () => registerCompile(context));
+  safeRegister('AI Workflows', () => registerAiWorkflows(context));
 }
 
 export function deactivate(): void {}
