@@ -12,9 +12,8 @@ import {
 suite('Config defaults', () => {
   test('getProjectFile returns noveltools.json by default', () => {
     const result = getProjectFile();
-    assert.ok(typeof result === 'string', 'should return a string');
-    // Default unless workspace overrides it
-    assert.ok(result.length > 0, 'should not be empty');
+    // In a clean test environment, this should be the default.
+    assert.strictEqual(result, 'noveltools.json');
   });
 
   test('getSceneGlob returns **/*.md by default', () => {
