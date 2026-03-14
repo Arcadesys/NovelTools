@@ -35,7 +35,13 @@
     "onView:noveltools.outline",
     "onCommand:noveltools.editSceneMetadata",
     "onCommand:noveltools.compileManuscript",
-    "onCommand:noveltools.manageCompileProfiles"
+    "onCommand:noveltools.manageCompileProfiles",
+    "onCommand:noveltools.exportContext",
+    "onCommand:noveltools.continuityCheck",
+    "onCommand:noveltools.sensitivityReview",
+    "onCommand:noveltools.aiReviewScene",
+    "onCommand:noveltools.aiExpandOutline",
+    "onCommand:noveltools.aiCheckDialogue"
   ],
   "contributes": {
     "jsonValidation": [
@@ -379,6 +385,36 @@
         "command": "noveltools.manageCompileProfiles",
         "title": "NovelTools: Manage Compile Profiles…",
         "icon": "$(gear)"
+      },
+      {
+        "command": "noveltools.exportContext",
+        "title": "NovelTools: Export AI Context",
+        "icon": "$(export)"
+      },
+      {
+        "command": "noveltools.continuityCheck",
+        "title": "NovelTools: Continuity Check",
+        "icon": "$(search-fuzzy)"
+      },
+      {
+        "command": "noveltools.sensitivityReview",
+        "title": "NovelTools: Sensitivity Review",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "noveltools.aiReviewScene",
+        "title": "Review with AI",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "noveltools.aiExpandOutline",
+        "title": "Expand Outline with AI",
+        "icon": "$(list-flat)"
+      },
+      {
+        "command": "noveltools.aiCheckDialogue",
+        "title": "Check Dialogue with AI",
+        "icon": "$(quote)"
       }
     ],
     "viewsContainers": {
@@ -575,6 +611,21 @@
           "command": "noveltools.editSceneMetadata",
           "when": "view == noveltools.manuscript && viewItem == scene",
           "group": "status@2"
+        },
+        {
+          "command": "noveltools.aiReviewScene",
+          "when": "view == noveltools.manuscript && viewItem == scene",
+          "group": "ai@0"
+        },
+        {
+          "command": "noveltools.aiExpandOutline",
+          "when": "view == noveltools.manuscript && viewItem == scene",
+          "group": "ai@1"
+        },
+        {
+          "command": "noveltools.aiCheckDialogue",
+          "when": "view == noveltools.manuscript && viewItem == scene",
+          "group": "ai@2"
         },
         {
           "command": "noveltools.outlineEditMetadata",
