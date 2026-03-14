@@ -91,7 +91,7 @@ function isConfiguredProjectFile(uri: vscode.Uri): boolean {
 }
 
 function isIndexLikeFileName(name: string): boolean {
-  return /index\.(json|md)$/i.test(name) || /manuscript\.json$/i.test(name);
+  return /index\.(json|yaml|yml|md)$/i.test(name) || /manuscript\.(json|yaml|yml)$/i.test(name);
 }
 
 function getConfiguredProjectUri(): vscode.Uri | null {

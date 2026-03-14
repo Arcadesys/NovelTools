@@ -349,7 +349,7 @@ export function registerSceneOutlineEditor(context: vscode.ExtensionContext): vo
 
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((doc) => {
-      if (activePanel && (doc.uri.fsPath.endsWith('.json') || doc.uri.fsPath.endsWith('.md'))) {
+      if (activePanel && (doc.uri.fsPath.endsWith('.json') || doc.uri.fsPath.endsWith('.md') || doc.uri.fsPath.endsWith('.yaml') || doc.uri.fsPath.endsWith('.yml'))) {
         void updatePanel(activePanel);
       }
     })

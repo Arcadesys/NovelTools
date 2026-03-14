@@ -634,6 +634,6 @@ function createNonce(): string {
 function isRelevantDocument(uri: vscode.Uri): boolean {
   if (uri.scheme !== 'file') return false;
   const lower = uri.fsPath.toLowerCase();
-  return lower.endsWith('.md') || lower.endsWith('.json');
+  return lower.endsWith('.md') || lower.endsWith('.json') || lower.endsWith('.yaml') || lower.endsWith('.yml');
 }
 

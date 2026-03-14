@@ -29,6 +29,7 @@
     "onCommand:noveltools.openProjectYaml",
     "onCommand:noveltools.buildProjectYaml",
     "onCommand:noveltools.newProject",
+    "onCommand:noveltools.migrateToJson",
     "onCommand:noveltools.showQuickStart",
     "onCommand:noveltools.openSettings"
   ],

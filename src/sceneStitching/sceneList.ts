@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { getProjectFile, getSceneFiles, getSceneGlob, getChapterGrouping } from '../config';
-import { parseProjectJson, resolveChapterFolders, type ManuscriptData, type ChapterData } from './projectData';
+import { parseProjectJson, parseProjectYaml, resolveChapterFolders, type ManuscriptData, type ChapterData } from './projectData';
 
 const ACTIVE_PROJECT_URI_KEY = 'noveltools.activeProjectUri';
 
@@ -92,37 +92,54 @@ export async function setActiveProjectUri(uri: vscode.Uri): Promise<void> {
   await extensionContext.workspaceState.update(ACTIVE_PROJECT_URI_KEY, uri.toString());
 }
 
-/** Find all project files (e.g. noveltools.json) in the workspace. */
+/** Find all project files (e.g. noveltools.json, plus legacy .yaml/.yml) in the workspace. */
 export async function findAllProjectFiles(): Promise<vscode.Uri[]> {
   const name = getProjectFile().trim();
   if (!name) return [];
   const baseName = path.basename(name);
-  const glob = `**/${baseName}`;
+  const stem = baseName.replace(/\.[^.]+$/, '');
+  const globs = [`**/${baseName}`];
+  // Also look for legacy YAML variants (e.g. noveltools.yaml, noveltools.yml)
+  if (baseName.endsWith('.json')) {
+    globs.push(`**/${stem}.yaml`, `**/${stem}.yml`);
+  }
   let found: vscode.Uri[] = [];
-  try {
-    found = await vscode.workspace.findFiles(glob);
-  } catch {
-    found = [];
+  for (const glob of globs) {
+    try {
+      const matches = await vscode.workspace.findFiles(glob);
+      found.push(...matches);
+    } catch {
+      // continue
+    }
   }
   const unique = Array.from(new Map(found.map((u) => [u.fsPath, u])).values());
-  return unique.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
+  // Sort JSON files first, then by path
+  return unique.sort((a, b) => {
+    const aIsJson = a.fsPath.endsWith('.json') ? 0 : 1;
+    const bIsJson = b.fsPath.endsWith('.json') ? 0 : 1;
+    if (aIsJson !== bIsJson) return aIsJson - bIsJson;
+    return a.fsPath.localeCompare(b.fsPath);
+  });
 }
 
 async function findProjectFile(): Promise<vscode.Uri | null> {
   const name = getProjectFile();
   const folders = vscode.workspace.workspaceFolders;
   if (!folders?.length) return null;
+
+  // Build candidate names: configured name + YAML fallbacks
+  const candidates = [name];
+  if (name.endsWith('.json')) {
+    const stem = name.replace(/\.json$/, '');
+    candidates.push(`${stem}.yaml`, `${stem}.yml`);
+  }
+
   for (const folder of folders) {
-    const candidate = vscode.Uri.joinPath(folder.uri, name);
-    try {
-      await vscode.workspace.fs.readFile(candidate);
-      return candidate;
-    } catch {
-      // try as path (e.g. draft/manuscript.json)
-      const segments = name.split(/[/\\]/);
+    for (const candidateName of candidates) {
+      const segments = candidateName.split(/[/\\]/);
       const fileUri = segments.length > 1
         ? vscode.Uri.joinPath(folder.uri, ...segments)
-        : candidate;
+        : vscode.Uri.joinPath(folder.uri, candidateName);
       try {
         await vscode.workspace.fs.readFile(fileUri);
         return fileUri;
@@ -137,7 +154,10 @@ async function findProjectFile(): Promise<vscode.Uri | null> {
 async function loadFromProjectFile(uri: vscode.Uri): Promise<ManuscriptResult> {
   const bytes = await vscode.workspace.fs.readFile(uri);
   const content = new TextDecoder().decode(bytes);
-  let data: ManuscriptData | null = parseProjectJson(content, uri);
+  const isYaml = /\.ya?ml$/i.test(uri.fsPath);
+  let data: ManuscriptData | null = isYaml
+    ? parseProjectYaml(content, uri)
+    : parseProjectJson(content, uri);
   if (data?.chapters.some((ch) => ch.folderPath)) {
     const baseDir = vscode.Uri.joinPath(uri, '..');
     data = await resolveChapterFolders(data, baseDir);

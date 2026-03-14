@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { parseProjectJson, serializeToJson } from '../../sceneStitching/projectData';
+import { parseProjectJson, parseProjectYaml, serializeToJson } from '../../sceneStitching/projectData';
 
 suite('Project JSON', () => {
   test('parseProjectJson parses valid JSON and returns ManuscriptData', () => {
@@ -51,5 +51,61 @@ suite('Project JSON', () => {
     assert.strictEqual(parseProjectJson('not json', uri), null);
     assert.strictEqual(parseProjectJson('{}', uri), null);
     assert.strictEqual(parseProjectJson('{"chapters":null}', uri), null);
+  });
+});
+
+suite('Project YAML backward compat', () => {
+  test('parseProjectYaml reads YAML project file', () => {
+    const uri = vscode.Uri.file(path.join('/fake', 'noveltools.yaml'));
+    const yaml = [
+      'title: YAML Novel',
+      'chapters:',
+      '  - folder: ch1',
+      '    title: First Chapter',
+      '  - folder: ch2',
+      '    scenes:',
+      '      - scene-a.md',
+      '      - scene-b.md',
+    ].join('\n');
+    const data = parseProjectYaml(yaml, uri);
+    assert.ok(data, 'Expected parsed data from YAML');
+    assert.strictEqual(data!.title, 'YAML Novel');
+    assert.strictEqual(data!.chapters.length, 2);
+    assert.strictEqual(data!.chapters[0].folderPath, 'ch1');
+    assert.strictEqual(data!.chapters[0].title, 'First Chapter');
+    assert.strictEqual(data!.chapters[1].scenePaths.length, 2);
+  });
+
+  test('parseProjectYaml returns null for invalid YAML', () => {
+    const uri = vscode.Uri.file(path.join('/fake', 'noveltools.yaml'));
+    assert.strictEqual(parseProjectYaml('title: Test', uri), null);
+    assert.strictEqual(parseProjectYaml('not: [valid: yaml: here', uri), null);
+  });
+
+  test('YAML to JSON migration produces equivalent data', () => {
+    const yamlUri = vscode.Uri.file(path.join('/fake', 'noveltools.yaml'));
+    const yaml = [
+      'title: Migration Test',
+      'chapters:',
+      '  - folder: draft/one',
+      '    scenes:',
+      '      - a.md',
+      '      - b.md',
+      '  - folder: draft/two',
+      'sceneStatus:',
+      '  draft/one/a.md: done',
+    ].join('\n');
+    const data = parseProjectYaml(yaml, yamlUri);
+    assert.ok(data, 'Expected parsed YAML data');
+
+    const baseDir = vscode.Uri.file('/fake');
+    const json = serializeToJson(data!, baseDir);
+    const jsonUri = vscode.Uri.file(path.join('/fake', 'noveltools.json'));
+    const roundTripped = parseProjectJson(json, jsonUri);
+
+    assert.ok(roundTripped, 'Expected round-tripped JSON data');
+    assert.strictEqual(roundTripped!.title, 'Migration Test');
+    assert.strictEqual(roundTripped!.chapters.length, 2);
+    assert.strictEqual(roundTripped!.sceneStatus?.['draft/one/a.md'], 'done');
   });
 });
