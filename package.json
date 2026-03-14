@@ -382,6 +382,11 @@
           "group": "status@0"
         },
         {
+          "command": "noveltools.setSceneSynopsis",
+          "when": "view == noveltools.manuscript && viewItem == scene",
+          "group": "status@1"
+        },
+        {
           "command": "noveltools.addSceneBelow",
           "when": "view == noveltools.manuscript && viewItem == scene",
           "group": "inline@9"
