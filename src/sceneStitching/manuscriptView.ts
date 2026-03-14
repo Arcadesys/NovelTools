@@ -1117,7 +1117,8 @@ class ManuscriptTreeDataProvider
       const rel = vscode.workspace.asRelativePath(element.uri);
       const scenePath = element.data.chapters[element.chapterIndex]?.scenePaths[element.sceneIndex];
       const pathKey = scenePath?.split(path.sep).join('/');
-      const synopsis = pathKey ? element.data.sceneMetadata?.[pathKey]?.synopsis : undefined;
+      const sceneMeta = pathKey ? element.data.sceneMetadata?.[pathKey] : undefined;
+      const synopsis = sceneMeta?.synopsis;
       const status = element.status;
       if (status) {
         item.iconPath = statusThemeIcon(status);
@@ -1129,6 +1130,10 @@ class ManuscriptTreeDataProvider
       tooltip.appendMarkdown(`${element.label}\n\n`);
       if (status) tooltip.appendMarkdown(`**Status:** ${STATUS_LABEL[status]}\n\n`);
       if (synopsis) tooltip.appendMarkdown(`*${synopsis}*\n\n`);
+      if (sceneMeta?.pov) tooltip.appendMarkdown(`**POV:** ${sceneMeta.pov}\n\n`);
+      if (sceneMeta?.setting) tooltip.appendMarkdown(`**Setting:** ${sceneMeta.setting}\n\n`);
+      if (sceneMeta?.timeline) tooltip.appendMarkdown(`**Timeline:** ${sceneMeta.timeline}\n\n`);
+      if (sceneMeta?.tags?.length) tooltip.appendMarkdown(`**Tags:** ${sceneMeta.tags.join(', ')}\n\n`);
       tooltip.appendCodeblock(rel);
       item.tooltip = tooltip;
     }

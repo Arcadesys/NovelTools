@@ -23,6 +23,20 @@ export interface ChapterData {
 
 export interface SceneMetadataEntry {
   synopsis?: string;
+  pov?: string;
+  setting?: string;
+  timeline?: string;
+  tags?: string[];
+}
+
+export interface CharacterEntry {
+  name: string;
+  description?: string;
+}
+
+export interface LocationEntry {
+  name: string;
+  description?: string;
 }
 
 export interface ManuscriptData {
@@ -36,6 +50,10 @@ export interface ManuscriptData {
   sceneMetadata?: Record<string, SceneMetadataEntry>;
   /** Optional manuscript word count target. */
   wordCountTarget?: number;
+  /** Named characters in the manuscript. */
+  characters?: CharacterEntry[];
+  /** Named locations in the manuscript. */
+  locations?: LocationEntry[];
 }
 
 /** Chapter in canonical JSON: string = folder path, or object with folder and optional title/scenes. */
@@ -43,12 +61,22 @@ type RawChapter =
   | string
   | { title?: string; scenes?: string[]; folder?: string };
 
+interface RawSceneMetadata {
+  synopsis?: string;
+  pov?: string;
+  setting?: string;
+  timeline?: string;
+  tags?: string[];
+}
+
 interface RawManuscript {
   title?: string;
   chapters: RawChapter[];
   sceneStatus?: Record<string, string>;
-  sceneMetadata?: Record<string, { synopsis?: string }>;
+  sceneMetadata?: Record<string, RawSceneMetadata>;
   wordCountTarget?: number;
+  characters?: Array<{ name: string; description?: string }>;
+  locations?: Array<{ name: string; description?: string }>;
 }
 
 function normalizeRawChapter(ch: RawChapter): { title?: string; scenes?: string[]; folder?: string } {
@@ -145,6 +173,10 @@ function rawToManuscriptData(raw: RawManuscript, projectFileUri: vscode.Uri): Ma
       if (v && typeof v === 'object') {
         const entry: SceneMetadataEntry = {};
         if (typeof v.synopsis === 'string') entry.synopsis = v.synopsis;
+        if (typeof v.pov === 'string') entry.pov = v.pov;
+        if (typeof v.setting === 'string') entry.setting = v.setting;
+        if (typeof v.timeline === 'string') entry.timeline = v.timeline;
+        if (Array.isArray(v.tags)) entry.tags = v.tags.filter((t): t is string => typeof t === 'string');
         if (Object.keys(entry).length > 0) sceneMetadata[k] = entry;
       }
     }
@@ -155,6 +187,20 @@ function rawToManuscriptData(raw: RawManuscript, projectFileUri: vscode.Uri): Ma
   const wordCountTarget = typeof raw.wordCountTarget === 'number' && raw.wordCountTarget > 0
     ? raw.wordCountTarget
     : undefined;
+  let characters: CharacterEntry[] | undefined;
+  if (Array.isArray(raw.characters)) {
+    characters = raw.characters
+      .filter((c) => c && typeof c.name === 'string' && c.name.trim())
+      .map((c) => ({ name: c.name.trim(), ...(typeof c.description === 'string' ? { description: c.description } : {}) }));
+    if (characters.length === 0) characters = undefined;
+  }
+  let locations: LocationEntry[] | undefined;
+  if (Array.isArray(raw.locations)) {
+    locations = raw.locations
+      .filter((l) => l && typeof l.name === 'string' && l.name.trim())
+      .map((l) => ({ name: l.name.trim(), ...(typeof l.description === 'string' ? { description: l.description } : {}) }));
+    if (locations.length === 0) locations = undefined;
+  }
   return {
     title: raw.title,
     chapters: mergedChapters,
@@ -163,6 +209,8 @@ function rawToManuscriptData(raw: RawManuscript, projectFileUri: vscode.Uri): Ma
     sceneStatus,
     sceneMetadata,
     wordCountTarget,
+    characters,
+    locations,
   };
 }
 
@@ -331,6 +379,12 @@ export function serializeToJson(data: ManuscriptData, baseDir?: vscode.Uri): str
   }
   if (toSerialize.wordCountTarget != null && toSerialize.wordCountTarget > 0) {
     raw.wordCountTarget = toSerialize.wordCountTarget;
+  }
+  if (toSerialize.characters && toSerialize.characters.length > 0) {
+    raw.characters = toSerialize.characters;
+  }
+  if (toSerialize.locations && toSerialize.locations.length > 0) {
+    raw.locations = toSerialize.locations;
   }
   return JSON.stringify(raw, null, 2);
 }

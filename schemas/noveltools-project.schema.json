@@ -59,6 +59,23 @@
           "synopsis": {
             "type": "string",
             "description": "One-line synopsis for the scene, shown as subtitle in sidebar."
+          },
+          "pov": {
+            "type": "string",
+            "description": "Point-of-view character for the scene."
+          },
+          "setting": {
+            "type": "string",
+            "description": "Location or setting where the scene takes place."
+          },
+          "timeline": {
+            "type": "string",
+            "description": "Timeline position (date, time, or narrative marker)."
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Custom tags for filtering and categorization."
           }
         }
       },
@@ -68,6 +85,44 @@
       "type": "integer",
       "minimum": 1,
       "description": "Target word count for the manuscript. Status bar shows progress toward this goal."
+    },
+    "characters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Character name."
+          },
+          "description": {
+            "type": "string",
+            "description": "Brief character description."
+          }
+        },
+        "required": ["name"]
+      },
+      "description": "Named characters in the manuscript. Used for POV autocomplete and reference tracking."
+    },
+    "locations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Location name."
+          },
+          "description": {
+            "type": "string",
+            "description": "Brief location description."
+          }
+        },
+        "required": ["name"]
+      },
+      "description": "Named locations in the manuscript. Used for setting autocomplete and reference tracking."
     }
   },
   "required": ["chapters"]
