@@ -12,6 +12,8 @@ import { registerSceneOutlineEditor } from './sceneStitching/sceneOutlineEditor'
 import { initSceneList } from './sceneStitching/sceneList';
 import { registerNewProject } from './sceneStitching/newProject';
 import { registerMigrateToJson } from './sceneStitching/migrateToJson';
+import { registerMetadataPanel } from './sceneStitching/metadataPanel';
+import { registerOutlineView } from './sceneStitching/outlineView';
 
 function safeRegister(name: string, fn: () => void): void {
   try {
@@ -37,6 +39,8 @@ export function activate(context: vscode.ExtensionContext): void {
   safeRegister('Word Count', () => registerWordCount(context));
   safeRegister('New Project', () => registerNewProject(context));
   safeRegister('Migrate to JSON', () => registerMigrateToJson(context));
+  safeRegister('Metadata Panel', () => registerMetadataPanel(context));
+  safeRegister('Outline View', () => registerOutlineView(context));
 }
 
 export function deactivate(): void {}
