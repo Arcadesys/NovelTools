@@ -63,7 +63,7 @@
           ],
           "description": "When building from files (no project file), group scenes into chapters by folder or keep a single flat chapter."
         },
-"noveltools.wordCount.stripMarkdown": {
+        "noveltools.wordCount.stripMarkdown": {
           "type": "boolean",
           "default": false,
           "description": "If true, strip markdown before counting words."
@@ -250,6 +250,11 @@
         "icon": "$(new-file)"
       },
       {
+        "command": "noveltools.setWordCountTarget",
+        "title": "NovelTools: Set Word Count Target",
+        "icon": "$(target)"
+      },
+      {
         "command": "noveltools.openSettings",
         "title": "NovelTools: Open Settings",
         "icon": "$(settings-gear)"
@@ -258,6 +263,11 @@
         "command": "noveltools.showQuickStart",
         "title": "NovelTools: Quick Start",
         "icon": "$(question)"
+      },
+      {
+        "command": "noveltools.migrateToJson",
+        "title": "NovelTools: Migrate YAML to JSON",
+        "icon": "$(json)"
       },
       {
         "command": "noveltools.selectDocument",
@@ -445,8 +455,10 @@
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^2.22.0",
     "glob": "^13.0.1",
-"mocha": "^11.7.5",
+    "mocha": "^11.7.5",
     "typescript": "^5.0.0"
   },
-  "dependencies": {}
+  "dependencies": {
+    "yaml": "^2.8.2"
+  }
 }

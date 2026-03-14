@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { parse as parseYaml } from 'yaml';
 
 /** Returns scene paths relative to baseDir for serialization (forward slashes for portability). */
 export function scenePathsRelativeTo(baseDir: vscode.Uri, sceneUris: vscode.Uri[]): string[] {
@@ -33,6 +34,8 @@ export interface ManuscriptData {
   sceneStatus?: Record<string, SceneStatus>;
   /** Per-scene metadata: key = relative path (forward slashes). */
   sceneMetadata?: Record<string, SceneMetadataEntry>;
+  /** Optional manuscript word count target. */
+  wordCountTarget?: number;
 }
 
 /** Chapter in canonical JSON: string = folder path, or object with folder and optional title/scenes. */
@@ -45,6 +48,7 @@ interface RawManuscript {
   chapters: RawChapter[];
   sceneStatus?: Record<string, string>;
   sceneMetadata?: Record<string, { synopsis?: string }>;
+  wordCountTarget?: number;
 }
 
 function normalizeRawChapter(ch: RawChapter): { title?: string; scenes?: string[]; folder?: string } {
@@ -148,6 +152,9 @@ function rawToManuscriptData(raw: RawManuscript, projectFileUri: vscode.Uri): Ma
   }
   const mergedChapters = mergeConsecutiveChaptersByFolder(chapters);
   const mergedFlatUris = mergedChapters.flatMap((ch) => ch.sceneUris);
+  const wordCountTarget = typeof raw.wordCountTarget === 'number' && raw.wordCountTarget > 0
+    ? raw.wordCountTarget
+    : undefined;
   return {
     title: raw.title,
     chapters: mergedChapters,
@@ -155,6 +162,7 @@ function rawToManuscriptData(raw: RawManuscript, projectFileUri: vscode.Uri): Ma
     projectFileUri,
     sceneStatus,
     sceneMetadata,
+    wordCountTarget,
   };
 }
 
@@ -167,6 +175,20 @@ export function parseProjectJson(
     return raw ? rawToManuscriptData(raw, projectFileUri) : null;
   } catch (err) {
     console.warn('[NovelTools] Failed to parse project file:', err instanceof Error ? err.message : String(err));
+    return null;
+  }
+}
+
+/** Parse a YAML project file (read-only backward compat). */
+export function parseProjectYaml(
+  content: string,
+  projectFileUri: vscode.Uri
+): ManuscriptData | null {
+  try {
+    const raw = parseYaml(content) as RawManuscript | null;
+    return raw ? rawToManuscriptData(raw, projectFileUri) : null;
+  } catch (err) {
+    console.warn('[NovelTools] Failed to parse YAML project file:', err instanceof Error ? err.message : String(err));
     return null;
   }
 }
@@ -306,6 +328,9 @@ export function serializeToJson(data: ManuscriptData, baseDir?: vscode.Uri): str
   }
   if (toSerialize.sceneMetadata && Object.keys(toSerialize.sceneMetadata).length > 0) {
     raw.sceneMetadata = toSerialize.sceneMetadata;
+  }
+  if (toSerialize.wordCountTarget != null && toSerialize.wordCountTarget > 0) {
+    raw.wordCountTarget = toSerialize.wordCountTarget;
   }
   return JSON.stringify(raw, null, 2);
 }
