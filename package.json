@@ -33,7 +33,9 @@
     "onCommand:noveltools.showQuickStart",
     "onCommand:noveltools.openSettings",
     "onView:noveltools.outline",
-    "onCommand:noveltools.editSceneMetadata"
+    "onCommand:noveltools.editSceneMetadata",
+    "onCommand:noveltools.compileManuscript",
+    "onCommand:noveltools.manageCompileProfiles"
   ],
   "contributes": {
     "jsonValidation": [
@@ -367,6 +369,16 @@
         "command": "noveltools.outlineEditMetadata",
         "title": "Edit Metadata…",
         "icon": "$(info)"
+      },
+      {
+        "command": "noveltools.compileManuscript",
+        "title": "NovelTools: Compile Manuscript",
+        "icon": "$(export)"
+      },
+      {
+        "command": "noveltools.manageCompileProfiles",
+        "title": "NovelTools: Manage Compile Profiles…",
+        "icon": "$(gear)"
       }
     ],
     "viewsContainers": {

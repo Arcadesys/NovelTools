@@ -123,6 +123,45 @@
         "required": ["name"]
       },
       "description": "Named locations in the manuscript. Used for setting autocomplete and reference tracking."
+    },
+    "compileProfiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Profile name (e.g. 'Submission Draft', 'Full Manuscript')."
+          },
+          "excludeStatuses": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["drafted", "revision", "review", "done", "spiked", "cut"]
+            },
+            "description": "Scene statuses to exclude from compiled output."
+          },
+          "includeTitle": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to include a title page heading."
+          },
+          "sceneBreak": {
+            "type": "string",
+            "default": "---",
+            "description": "Separator between scenes within a chapter."
+          },
+          "chapterBreak": {
+            "type": "string",
+            "enum": ["pageBreak", "heading"],
+            "default": "heading",
+            "description": "How chapters are separated: 'heading' (## heading) or 'pageBreak' (HTML page-break div)."
+          }
+        },
+        "required": ["name"]
+      },
+      "description": "Saved compile profiles with formatting and filter settings."
     }
   },
   "required": ["chapters"]
