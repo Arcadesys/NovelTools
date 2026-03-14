@@ -2,8 +2,8 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { getProjectFile } from '../config';
 import { getManuscript, clearManuscriptCache } from './sceneList';
-import type { ChapterData, ManuscriptData } from './projectYaml';
-import { buildProjectYamlToFile, writeProjectYaml } from './projectFile';
+import type { ChapterData, ManuscriptData } from './projectData';
+import { buildProjectToFile, writeProject } from './projectFile';
 
 /** Either our internal node or the TreeItem passed by the view context menu (has label + contextValue). */
 type ChapterNodeOrItem =
@@ -39,7 +39,7 @@ async function addChapter(nodeOrItem: ChapterNodeOrItem | undefined, position: '
       segments.length > 1
         ? vscode.Uri.joinPath(folders[0].uri, ...segments)
         : vscode.Uri.joinPath(folders[0].uri, name);
-    await buildProjectYamlToFile(targetUri, result.data);
+    await buildProjectToFile(targetUri, result.data);
     clearManuscriptCache();
     result = await getManuscript();
   }
@@ -110,7 +110,7 @@ async function addChapter(nodeOrItem: ChapterNodeOrItem | undefined, position: '
   };
   const updated = insertChapterInData(result.data, insertIndex, newChapter);
 
-  await writeProjectYaml(result.projectFileUri, updated);
+  await writeProject(result.projectFileUri, updated);
   clearManuscriptCache(result.projectFileUri);
   await vscode.commands.executeCommand('noveltools.refreshManuscript');
 }

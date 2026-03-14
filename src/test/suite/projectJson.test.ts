@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { parseProjectJson, serializeToJson } from '../../sceneStitching/projectYaml';
+import { parseProjectJson, serializeToJson } from '../../sceneStitching/projectData';
 
 suite('Project JSON', () => {
   test('parseProjectJson parses valid JSON and returns ManuscriptData', () => {

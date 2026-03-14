@@ -20,6 +20,10 @@ export interface ChapterData {
   folderPath?: string;
 }
 
+export interface SceneMetadataEntry {
+  synopsis?: string;
+}
+
 export interface ManuscriptData {
   title?: string;
   chapters: ChapterData[];
@@ -27,6 +31,8 @@ export interface ManuscriptData {
   projectFileUri: vscode.Uri | null;
   /** Per-section status: key = relative path (forward slashes), value = done | drafted | spiked. */
   sceneStatus?: Record<string, SceneStatus>;
+  /** Per-scene metadata: key = relative path (forward slashes). */
+  sceneMetadata?: Record<string, SceneMetadataEntry>;
 }
 
 /** Chapter in canonical JSON: string = folder path, or object with folder and optional title/scenes. */
@@ -38,6 +44,7 @@ interface RawManuscript {
   title?: string;
   chapters: RawChapter[];
   sceneStatus?: Record<string, string>;
+  sceneMetadata?: Record<string, { synopsis?: string }>;
 }
 
 function normalizeRawChapter(ch: RawChapter): { title?: string; scenes?: string[]; folder?: string } {
@@ -57,7 +64,7 @@ function normalizeRawChapter(ch: RawChapter): { title?: string; scenes?: string[
   };
 }
 
-/** Build ManuscriptData from raw parsed content (shared by YAML and JSON parsers). */
+/** Build ManuscriptData from raw parsed content. */
 function rawToManuscriptData(raw: RawManuscript, projectFileUri: vscode.Uri): ManuscriptData | null {
   if (!raw || !Array.isArray(raw.chapters)) return null;
   const baseDir = vscode.Uri.joinPath(projectFileUri, '..');
@@ -126,6 +133,19 @@ function rawToManuscriptData(raw: RawManuscript, projectFileUri: vscode.Uri): Ma
     }
     if (Object.keys(sceneStatus).length === 0) sceneStatus = undefined;
   }
+  let sceneMetadata: ManuscriptData['sceneMetadata'];
+  const rawMeta = raw.sceneMetadata;
+  if (rawMeta && typeof rawMeta === 'object' && !Array.isArray(rawMeta)) {
+    sceneMetadata = {};
+    for (const [k, v] of Object.entries(rawMeta)) {
+      if (v && typeof v === 'object') {
+        const entry: SceneMetadataEntry = {};
+        if (typeof v.synopsis === 'string') entry.synopsis = v.synopsis;
+        if (Object.keys(entry).length > 0) sceneMetadata[k] = entry;
+      }
+    }
+    if (Object.keys(sceneMetadata).length === 0) sceneMetadata = undefined;
+  }
   const mergedChapters = mergeConsecutiveChaptersByFolder(chapters);
   const mergedFlatUris = mergedChapters.flatMap((ch) => ch.sceneUris);
   return {
@@ -134,6 +154,7 @@ function rawToManuscriptData(raw: RawManuscript, projectFileUri: vscode.Uri): Ma
     flatUris: mergedFlatUris,
     projectFileUri,
     sceneStatus,
+    sceneMetadata,
   };
 }
 
@@ -144,14 +165,15 @@ export function parseProjectJson(
   try {
     const raw = JSON.parse(content) as RawManuscript | null;
     return raw ? rawToManuscriptData(raw, projectFileUri) : null;
-  } catch {
+  } catch (err) {
+    console.warn('[NovelTools] Failed to parse project file:', err instanceof Error ? err.message : String(err));
     return null;
   }
 }
 
 /**
  * Merge consecutive chapters that share the same folder into one chapter (preserves scene order).
- * Use when YAML has multiple "scenes" blocks per folder (e.g. one for title scene, one for the rest).
+ * Handles cases where multiple chapter entries reference the same folder.
  */
 function mergeConsecutiveChaptersByFolder(chapters: ChapterData[]): ChapterData[] {
   if (chapters.length <= 1) return chapters;
@@ -212,7 +234,8 @@ export async function resolveChapterFolders(
     let entries: [string, vscode.FileType][];
     try {
       entries = await vscode.workspace.fs.readDirectory(folderUri);
-    } catch {
+    } catch (err) {
+      console.warn(`[NovelTools] Could not read chapter folder "${ch.folderPath}":`, err instanceof Error ? err.message : String(err));
       chapters.push({ ...ch, sceneUris: [], scenePaths: [] });
       continue;
     }
@@ -280,6 +303,9 @@ export function serializeToJson(data: ManuscriptData, baseDir?: vscode.Uri): str
   };
   if (toSerialize.sceneStatus && Object.keys(toSerialize.sceneStatus).length > 0) {
     raw.sceneStatus = toSerialize.sceneStatus;
+  }
+  if (toSerialize.sceneMetadata && Object.keys(toSerialize.sceneMetadata).length > 0) {
+    raw.sceneMetadata = toSerialize.sceneMetadata;
   }
   return JSON.stringify(raw, null, 2);
 }

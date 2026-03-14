@@ -8,10 +8,6 @@ export function getProjectFile(): string {
   return vscode.workspace.getConfiguration(SECTION).get<string>('projectFile') ?? 'noveltools.json';
 }
 
-export function getIndexYamlGlob(): string {
-  return vscode.workspace.getConfiguration(SECTION).get<string>('indexYamlGlob') ?? '**/*[iI]ndex*.{yaml,yml,YAML,YML,md,MD}';
-}
-
 export function getSceneFiles(): string[] {
   return vscode.workspace.getConfiguration(SECTION).get<string[]>('sceneFiles') ?? [];
 }

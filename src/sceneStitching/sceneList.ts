@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { getProjectFile, getSceneFiles, getSceneGlob, getChapterGrouping } from '../config';
-import { parseProjectJson, resolveChapterFolders, type ManuscriptData, type ChapterData } from './projectYaml';
+import { parseProjectJson, resolveChapterFolders, type ManuscriptData, type ChapterData } from './projectData';
 
 const ACTIVE_PROJECT_URI_KEY = 'noveltools.activeProjectUri';
 
@@ -108,9 +108,6 @@ export async function findAllProjectFiles(): Promise<vscode.Uri[]> {
   return unique.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
 }
 
-/** @deprecated Use findAllProjectFiles. */
-export const findAllIndexYaml = findAllProjectFiles;
-
 async function findProjectFile(): Promise<vscode.Uri | null> {
   const name = getProjectFile();
   const folders = vscode.workspace.workspaceFolders;
@@ -121,7 +118,7 @@ async function findProjectFile(): Promise<vscode.Uri | null> {
       await vscode.workspace.fs.readFile(candidate);
       return candidate;
     } catch {
-      // try as path (e.g. draft/manuscript.yaml)
+      // try as path (e.g. draft/manuscript.json)
       const segments = name.split(/[/\\]/);
       const fileUri = segments.length > 1
         ? vscode.Uri.joinPath(folder.uri, ...segments)

@@ -207,6 +207,11 @@
         "icon": "$(clear)"
       },
       {
+        "command": "noveltools.setSceneSynopsis",
+        "title": "NovelTools: Set Synopsis…",
+        "icon": "$(note)"
+      },
+      {
         "command": "noveltools.openStitchedManuscript",
         "title": "NovelTools: Open Stitched Manuscript",
         "icon": "$(book)"
@@ -435,8 +440,7 @@
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^2.22.0",
     "glob": "^13.0.1",
-    "minimatch": "^10.1.2",
-    "mocha": "^11.7.5",
+"mocha": "^11.7.5",
     "typescript": "^5.0.0"
   },
   "dependencies": {}

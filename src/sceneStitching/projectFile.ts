@@ -1,11 +1,9 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
 import {
   scenePathsRelativeTo,
   serializeToJson,
   type ManuscriptData,
-} from './projectYaml';
-import { setActiveProjectUri, clearManuscriptCache } from './sceneList';
+} from './projectData';
 
 export async function writeProject(uri: vscode.Uri, data: ManuscriptData): Promise<void> {
   const baseDir = vscode.Uri.joinPath(uri, '..');
@@ -38,9 +36,3 @@ export async function buildProjectToFile(targetUri: vscode.Uri, data: Manuscript
   const json = serializeToJson(dataForWrite, baseDir);
   await vscode.workspace.fs.writeFile(targetUri, Buffer.from(json, 'utf8'));
 }
-
-/** @deprecated Use writeProject. */
-export const writeProjectYaml = writeProject;
-
-/** @deprecated Use buildProjectToFile. */
-export const buildProjectYamlToFile = buildProjectToFile;
