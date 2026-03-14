@@ -2,25 +2,31 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import {
   clearManuscriptCache,
-  findAllIndexYaml,
+  findAllProjectFiles,
   getManuscript,
 } from './sceneList';
 import {
   type SceneStatus,
-} from './projectYaml';
+} from './projectData';
 
 const VIEW_ID = 'noveltools.sceneCards';
 
 const STATUS_LABEL: Record<SceneStatus, string> = {
-  done: 'Done',
   drafted: 'Drafted',
+  revision: 'Revision',
+  review: 'Review',
+  done: 'Done',
   spiked: 'Spiked',
+  cut: 'Cut',
 };
 
 const STATUS_CLASS: Record<SceneStatus, string> = {
-  done: 'status-done',
   drafted: 'status-drafted',
+  revision: 'status-revision',
+  review: 'status-review',
+  done: 'status-done',
   spiked: 'status-spiked',
+  cut: 'status-cut',
 };
 
 const COMMAND_WHITELIST = new Set([
@@ -190,7 +196,7 @@ class SceneCardsViewProvider implements vscode.WebviewViewProvider {
 async function buildSceneCardsModel(): Promise<SceneCardsModel> {
   const [result, allIndex] = await Promise.all([
     getManuscript(),
-    findAllIndexYaml(),
+    findAllProjectFiles(),
   ]);
 
   if (!result.data) {
@@ -298,7 +304,7 @@ function renderHtml(webview: vscode.Webview, nonce: string, model: SceneCardsMod
          <p>Build a project file from your markdown scenes to populate this view.</p>
        </div>`;
 
-  const buildOrOpenLabel = model.hasProjectFile ? 'Open Project File' : 'Build Project YAML';
+  const buildOrOpenLabel = model.hasProjectFile ? 'Open Project File' : 'Build Project File';
   const buildOrOpenCommand = model.hasProjectFile ? 'noveltools.openProjectYaml' : 'noveltools.buildProjectYaml';
   const documentButton = model.hasMultipleDocuments
     ? '<button class="action-btn" data-action="command" data-command="noveltools.selectDocument">Select Document</button>'
@@ -470,17 +476,29 @@ function renderHtml(webview: vscode.Webview, nonce: string, model: SceneCardsMod
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
-    .status-done {
-      border-color: var(--vscode-testing-iconPassed);
-      color: var(--vscode-testing-iconPassed);
-    }
     .status-drafted {
       border-color: var(--vscode-testing-iconQueued);
       color: var(--vscode-testing-iconQueued);
     }
+    .status-revision {
+      border-color: var(--vscode-charts-blue);
+      color: var(--vscode-charts-blue);
+    }
+    .status-review {
+      border-color: var(--vscode-charts-orange);
+      color: var(--vscode-charts-orange);
+    }
+    .status-done {
+      border-color: var(--vscode-testing-iconPassed);
+      color: var(--vscode-testing-iconPassed);
+    }
     .status-spiked {
       border-color: var(--vscode-testing-iconFailed);
       color: var(--vscode-testing-iconFailed);
+    }
+    .status-cut {
+      border-color: var(--vscode-descriptionForeground);
+      color: var(--vscode-descriptionForeground);
     }
     .empty-panel {
       border: 1px dashed var(--nt-border);
@@ -634,6 +652,6 @@ function createNonce(): string {
 function isRelevantDocument(uri: vscode.Uri): boolean {
   if (uri.scheme !== 'file') return false;
   const lower = uri.fsPath.toLowerCase();
-  return lower.endsWith('.md') || lower.endsWith('.yaml') || lower.endsWith('.yml');
+  return lower.endsWith('.md') || lower.endsWith('.json') || lower.endsWith('.yaml') || lower.endsWith('.yml');
 }
 

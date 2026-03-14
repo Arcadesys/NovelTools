@@ -33,8 +33,8 @@ export async function getManuscriptWordCount(
     try {
       const doc = await vscode.workspace.openTextDocument(uri);
       total += countWords(doc.getText(), stripMarkdownOption);
-    } catch {
-      // skip missing or unreadable files
+    } catch (err) {
+      console.warn(`[NovelTools] Could not read file for word count: ${uri.fsPath}`, err instanceof Error ? err.message : String(err));
     }
   }
   return total;

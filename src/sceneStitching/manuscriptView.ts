@@ -5,7 +5,7 @@ import {
   getManuscript,
   getManuscriptByUri,
   clearManuscriptCache,
-  findAllIndexYaml,
+  findAllProjectFiles,
   setActiveProjectUri,
   type ManuscriptResult,
 } from './sceneList';
@@ -14,9 +14,9 @@ import {
   reorderChapters,
   removeScene as removeSceneInData,
   removeChapter as removeChapterInData,
-} from './projectYaml';
-import { buildProjectYamlToFile, writeProjectYaml } from './projectFile';
-import type { ManuscriptData, SceneStatus } from './projectYaml';
+} from './projectData';
+import { buildProjectToFile, writeProject } from './projectFile';
+import type { ManuscriptData, SceneStatus, SceneMetadataEntry } from './projectData';
 import { buildSceneHeadingLine, buildSceneHeadingText } from './sceneHeading';
 
 const VIEW_ID = 'noveltools.manuscript';
@@ -24,10 +24,10 @@ const MIME_TREE = `application/vnd.code.tree.${VIEW_ID}`;
 const QUICK_START_FALLBACK = `# NovelTools Quick Start
 
 1. Create a project file
-   - Run "NovelTools: Build Project YAML" to create \`noveltools.json\` from your scene files.
+   - Run "NovelTools: Build Project File" to create \`noveltools.json\` from your scene files.
 
 2. Use the Manuscript view
-   - Drag chapters and scenes to reorder. Changes are written back to the YAML.
+   - Drag chapters and scenes to reorder. Changes are written back to the project file.
 
 3. Read the stitched manuscript
    - Run "NovelTools: Open Stitched Manuscript" to view the whole draft at once.
@@ -68,6 +68,29 @@ interface SceneNode {
   data: ManuscriptData;
 }
 
+const STATUS_LABEL: Record<SceneStatus, string> = {
+  drafted: 'Drafted',
+  revision: 'Revision',
+  review: 'Review',
+  done: 'Done',
+  spiked: 'Spiked',
+  cut: 'Cut',
+};
+
+const STATUS_ICON: Record<SceneStatus, { id: string; color: string }> = {
+  drafted: { id: 'pencil', color: 'testing.iconQueued' },
+  revision: { id: 'edit', color: 'charts.blue' },
+  review: { id: 'eye', color: 'charts.orange' },
+  done: { id: 'pass-filled', color: 'testing.iconPassed' },
+  spiked: { id: 'circle-slash', color: 'testing.iconFailed' },
+  cut: { id: 'close', color: 'descriptionForeground' },
+};
+
+function statusThemeIcon(status: SceneStatus): vscode.ThemeIcon {
+  const info = STATUS_ICON[status];
+  return new vscode.ThemeIcon(info.id, new vscode.ThemeColor(info.color));
+}
+
 function formatSceneCount(count: number): string {
   return `${count} ${count === 1 ? 'scene' : 'scenes'}`;
 }
@@ -91,7 +114,7 @@ function isConfiguredProjectFile(uri: vscode.Uri): boolean {
 }
 
 function isIndexLikeFileName(name: string): boolean {
-  return /index\.(yaml|yml|md)$/i.test(name) || /manuscript\.(yaml|yml)$/i.test(name);
+  return /index\.(json|yaml|yml|md)$/i.test(name) || /manuscript\.(json|yaml|yml)$/i.test(name);
 }
 
 function getConfiguredProjectUri(): vscode.Uri | null {
@@ -115,6 +138,13 @@ function getTreeItemLabel(node: TreeNode): string {
     case 'scene':
       return node.label;
   }
+}
+
+/** TreeItem.label can be string or TreeItemLabel; normalize to string for comparisons. */
+function treeItemLabelString(label: string | vscode.TreeItemLabel | undefined): string | undefined {
+  if (label === undefined) return undefined;
+  if (typeof label === 'string') return label;
+  return label && typeof label === 'object' && 'label' in label ? (label as vscode.TreeItemLabel).label : undefined;
 }
 
 function isCaseOnlyFileRename(fromUri: vscode.Uri, toUri: vscode.Uri): boolean {
@@ -204,7 +234,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
         segments.length > 1
           ? vscode.Uri.joinPath(folders[0].uri, ...segments)
           : vscode.Uri.joinPath(folders[0].uri, name);
-      await buildProjectYamlToFile(targetUri, result.data);
+      await buildProjectToFile(targetUri, result.data);
       clearManuscriptCache();
       treeDataProvider.refresh();
     })
@@ -334,7 +364,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
         const choice = await vscode.window.showInformationMessage(
           `No project file found. Create ${rel}?`,
           'Create and Open',
-          'Build Project YAML',
+          'Build Project File',
           'Cancel'
         );
         if (choice === 'Create and Open') {
@@ -346,7 +376,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
           await openAndFocus(configuredUri);
           return;
         }
-        if (choice === 'Build Project YAML') {
+        if (choice === 'Build Project File') {
           await vscode.commands.executeCommand('noveltools.buildProjectYaml');
         }
       }
@@ -451,20 +481,42 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       let selection = (nodeOrItem ?? treeView.selection[0]) as TreeNode | undefined;
       if (selection?.type !== 'chapter') {
         const item = nodeOrItem ?? treeView.selection[0];
-        const label = item && typeof item === 'object' && 'label' in item ? (item as vscode.TreeItem).label : undefined;
-        if (label !== undefined && item && typeof item === 'object' && (item as vscode.TreeItem).contextValue === 'chapter') {
-          const result = await getManuscript();
-          if (result.data?.projectFileUri) {
-            const chapterIndex = result.data.chapters.findIndex(
-              (ch, i) => (ch.title ?? `Chapter ${i + 1}`) === label
-            );
-            if (chapterIndex >= 0) {
-              selection = {
-                type: 'chapter',
-                chapterIndex,
-                label: String(label),
-                data: result.data,
-              };
+        const rawLabel = item && typeof item === 'object' && 'label' in item ? (item as vscode.TreeItem).label : undefined;
+        const labelStr = treeItemLabelString(rawLabel);
+        if (labelStr !== undefined && item && typeof item === 'object' && (item as vscode.TreeItem).contextValue === 'chapter') {
+          const allIndex = await findAllProjectFiles();
+          const sources = allIndex.length > 1 ? allIndex : null;
+          if (sources) {
+            for (const projectUri of sources) {
+              const result = await getManuscriptByUri(projectUri);
+              if (!result.data?.projectFileUri) continue;
+              const chapterIndex = result.data.chapters.findIndex(
+                (ch, i) => (ch.title ?? `Chapter ${i + 1}`) === labelStr
+              );
+              if (chapterIndex >= 0) {
+                selection = {
+                  type: 'chapter',
+                  chapterIndex,
+                  label: labelStr,
+                  data: result.data,
+                };
+                break;
+              }
+            }
+          } else {
+            const result = await getManuscript();
+            if (result.data?.projectFileUri) {
+              const chapterIndex = result.data.chapters.findIndex(
+                (ch, i) => (ch.title ?? `Chapter ${i + 1}`) === labelStr
+              );
+              if (chapterIndex >= 0) {
+                selection = {
+                  type: 'chapter',
+                  chapterIndex,
+                  label: labelStr,
+                  data: result.data,
+                };
+              }
             }
           }
         }
@@ -477,7 +529,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       const name = await vscode.window.showInputBox({
         title: 'Rename Chapter',
         value: currentName,
-        prompt: 'Enter the chapter name for the manuscript and YAML.',
+        prompt: 'Enter the chapter name for the manuscript.',
       });
       if (name === undefined) return;
       const data = selection.data;
@@ -490,7 +542,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
         chapters,
         flatUris: chapters.flatMap((ch) => ch.sceneUris),
       };
-      await writeProjectYaml(data.projectFileUri, updated);
+      await writeProject(data.projectFileUri, updated);
       clearManuscriptCache(data.projectFileUri);
       treeDataProvider.refresh();
     })
@@ -594,7 +646,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
         };
 
         try {
-          await writeProjectYaml(data.projectFileUri, updated);
+          await writeProject(data.projectFileUri, updated);
         } catch (err) {
           try {
             await renameFileOnDisk(newUri, oldUri);
@@ -661,7 +713,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       );
       if (confirm !== 'Remove') return;
       const updated = removeSceneInData(data, selection.chapterIndex, selection.sceneIndex);
-      await writeProjectYaml(data.projectFileUri, updated);
+      await writeProject(data.projectFileUri, updated);
       clearManuscriptCache(data.projectFileUri);
       treeDataProvider.refresh();
     })
@@ -707,7 +759,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       );
       if (confirm !== 'Delete') return;
       const updated = removeSceneInData(data, selection.chapterIndex, selection.sceneIndex);
-      await writeProjectYaml(data.projectFileUri, updated);
+      await writeProject(data.projectFileUri, updated);
       clearManuscriptCache(data.projectFileUri);
       try {
         await vscode.workspace.fs.delete(selection.uri);
@@ -730,20 +782,42 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       let selection = (nodeOrItem ?? treeView.selection[0]) as TreeNode | undefined;
       if (selection?.type !== 'chapter') {
         const item = nodeOrItem ?? treeView.selection[0];
-        const label = item && typeof item === 'object' && 'label' in item ? (item as vscode.TreeItem).label : undefined;
-        if (label !== undefined && item && typeof item === 'object' && (item as vscode.TreeItem).contextValue === 'chapter') {
-          const result = await getManuscript();
-          if (result.data?.projectFileUri) {
-            const chapterIndex = result.data.chapters.findIndex(
-              (ch, i) => (ch.title ?? `Chapter ${i + 1}`) === label
-            );
-            if (chapterIndex >= 0) {
-              selection = {
-                type: 'chapter',
-                chapterIndex,
-                label: String(label),
-                data: result.data,
-              };
+        const rawLabel = item && typeof item === 'object' && 'label' in item ? (item as vscode.TreeItem).label : undefined;
+        const labelStr = treeItemLabelString(rawLabel);
+        if (labelStr !== undefined && item && typeof item === 'object' && (item as vscode.TreeItem).contextValue === 'chapter') {
+          const allIndex = await findAllProjectFiles();
+          const sources = allIndex.length > 1 ? allIndex : null;
+          if (sources) {
+            for (const projectUri of sources) {
+              const result = await getManuscriptByUri(projectUri);
+              if (!result.data?.projectFileUri) continue;
+              const chapterIndex = result.data.chapters.findIndex(
+                (ch, i) => (ch.title ?? `Chapter ${i + 1}`) === labelStr
+              );
+              if (chapterIndex >= 0) {
+                selection = {
+                  type: 'chapter',
+                  chapterIndex,
+                  label: labelStr,
+                  data: result.data,
+                };
+                break;
+              }
+            }
+          } else {
+            const result = await getManuscript();
+            if (result.data?.projectFileUri) {
+              const chapterIndex = result.data.chapters.findIndex(
+                (ch, i) => (ch.title ?? `Chapter ${i + 1}`) === labelStr
+              );
+              if (chapterIndex >= 0) {
+                selection = {
+                  type: 'chapter',
+                  chapterIndex,
+                  label: labelStr,
+                  data: result.data,
+                };
+              }
             }
           }
         }
@@ -763,7 +837,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       );
       if (confirm !== 'Remove') return;
       const updated = removeChapterInData(data, selection.chapterIndex);
-      await writeProjectYaml(data.projectFileUri, updated);
+      await writeProject(data.projectFileUri, updated);
       clearManuscriptCache(data.projectFileUri);
       treeDataProvider.refresh();
     })
@@ -825,7 +899,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       ...data,
       sceneStatus: Object.keys(sceneStatus).length ? sceneStatus : undefined,
     };
-    await writeProjectYaml(data.projectFileUri, updated);
+    await writeProject(data.projectFileUri, updated);
     clearManuscriptCache(data.projectFileUri);
     treeDataProvider.refresh();
   }
@@ -841,14 +915,76 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
     )
   );
   context.subscriptions.push(
+    vscode.commands.registerCommand('noveltools.setSectionStatusRevision', (nodeOrItem?: TreeNode | vscode.TreeItem) =>
+      applySectionStatus(nodeOrItem, 'revision')
+    )
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('noveltools.setSectionStatusReview', (nodeOrItem?: TreeNode | vscode.TreeItem) =>
+      applySectionStatus(nodeOrItem, 'review')
+    )
+  );
+  context.subscriptions.push(
     vscode.commands.registerCommand('noveltools.setSectionStatusSpiked', (nodeOrItem?: TreeNode | vscode.TreeItem) =>
       applySectionStatus(nodeOrItem, 'spiked')
+    )
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('noveltools.setSectionStatusCut', (nodeOrItem?: TreeNode | vscode.TreeItem) =>
+      applySectionStatus(nodeOrItem, 'cut')
     )
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('noveltools.clearSectionStatus', (nodeOrItem?: TreeNode | vscode.TreeItem) =>
       applySectionStatus(nodeOrItem, null)
     )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('noveltools.setSceneSynopsis', async (nodeOrItem?: TreeNode | vscode.TreeItem) => {
+      const selection = await resolveSceneSelection(nodeOrItem);
+      if (!selection) {
+        await vscode.window.showInformationMessage('Select a scene in the Manuscript view to set its synopsis.');
+        return;
+      }
+      const data = selection.data;
+      if (!data.projectFileUri) {
+        await vscode.window.showInformationMessage('Synopsis is saved in the project file. Open or create a project file first.');
+        return;
+      }
+      const ch = data.chapters[selection.chapterIndex];
+      const scenePath = ch.scenePaths[selection.sceneIndex] ?? path.relative(path.dirname(data.projectFileUri.fsPath), selection.uri.fsPath);
+      const pathKey = scenePath.split(path.sep).join('/');
+      const existing = data.sceneMetadata?.[pathKey]?.synopsis ?? '';
+      const synopsis = await vscode.window.showInputBox({
+        title: 'Set Synopsis',
+        prompt: `One-line synopsis for "${selection.label}"`,
+        value: existing,
+        placeHolder: 'A brief description of this scene...',
+      });
+      if (synopsis === undefined) return;
+      const sceneMetadata = { ...data.sceneMetadata };
+      if (synopsis.trim() === '') {
+        if (sceneMetadata[pathKey]) {
+          const entry = { ...sceneMetadata[pathKey] };
+          delete entry.synopsis;
+          if (Object.keys(entry).length === 0) {
+            delete sceneMetadata[pathKey];
+          } else {
+            sceneMetadata[pathKey] = entry;
+          }
+        }
+      } else {
+        sceneMetadata[pathKey] = { ...sceneMetadata[pathKey], synopsis: synopsis.trim() };
+      }
+      const updated: ManuscriptData = {
+        ...data,
+        sceneMetadata: Object.keys(sceneMetadata).length ? sceneMetadata : undefined,
+      };
+      await writeProject(data.projectFileUri, updated);
+      clearManuscriptCache(data.projectFileUri);
+      treeDataProvider.refresh();
+    })
   );
 
   context.subscriptions.push(
@@ -865,9 +1001,12 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       }
       const choice = await vscode.window.showQuickPick(
         [
-          { label: '🟢 Done', value: 'done' as SceneStatus },
           { label: '🟡 Drafted', value: 'drafted' as SceneStatus },
-          { label: '🔴 Spiked out', value: 'spiked' as SceneStatus },
+          { label: '🔵 Revision', value: 'revision' as SceneStatus },
+          { label: '🟠 Review', value: 'review' as SceneStatus },
+          { label: '🟢 Done', value: 'done' as SceneStatus },
+          { label: '🔴 Spiked', value: 'spiked' as SceneStatus },
+          { label: '⚫ Cut', value: 'cut' as SceneStatus },
           { label: '$(clear) Clear status', value: null },
         ],
         { title: 'Set section status', placeHolder: selection.label }
@@ -879,7 +1018,7 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('noveltools.selectDocument', async () => {
-      const allIndex = await findAllIndexYaml();
+      const allIndex = await findAllProjectFiles();
       if (allIndex.length <= 1) return;
       const items = await Promise.all(
         allIndex.map(async (uri) => {
@@ -976,8 +1115,20 @@ class ManuscriptTreeDataProvider
     }
     if (element.type === 'scene') {
       const rel = vscode.workspace.asRelativePath(element.uri);
+      const scenePath = element.data.chapters[element.chapterIndex]?.scenePaths[element.sceneIndex];
+      const pathKey = scenePath?.split(path.sep).join('/');
+      const synopsis = pathKey ? element.data.sceneMetadata?.[pathKey]?.synopsis : undefined;
+      const status = element.status;
+      if (status) {
+        item.iconPath = statusThemeIcon(status);
+      }
+      if (synopsis) {
+        item.description = synopsis;
+      }
       const tooltip = new vscode.MarkdownString(undefined, true);
       tooltip.appendMarkdown(`${element.label}\n\n`);
+      if (status) tooltip.appendMarkdown(`**Status:** ${STATUS_LABEL[status]}\n\n`);
+      if (synopsis) tooltip.appendMarkdown(`*${synopsis}*\n\n`);
       tooltip.appendCodeblock(rel);
       item.tooltip = tooltip;
     }
@@ -987,7 +1138,7 @@ class ManuscriptTreeDataProvider
 
   async getChildren(element?: TreeNode): Promise<TreeNode[]> {
     try {
-      const allIndex = await findAllIndexYaml();
+      const allIndex = await findAllProjectFiles();
       if (allIndex.length > 1 && !element) {
         const nodes: DocumentNode[] = [];
         for (const uri of allIndex) {
@@ -1029,13 +1180,13 @@ class ManuscriptTreeDataProvider
           const rel = vscode.workspace.asRelativePath(result.projectFileUri);
           return [{
             type: 'root',
-            label: `Could not parse ${rel}. Fix YAML and refresh.`,
+            label: `Could not parse ${rel}. Fix the project file and refresh.`,
             data: null,
           }];
         }
         return [{
           type: 'root',
-          label: 'No manuscript found. Build Project YAML to get started.',
+          label: 'No manuscript found. Build Project File to get started.',
           data: null,
         }];
       }
@@ -1141,7 +1292,7 @@ class ManuscriptTreeDataProvider
         segments.length > 1
           ? vscode.Uri.joinPath(folders[0].uri, ...segments)
           : vscode.Uri.joinPath(folders[0].uri, name);
-      await buildProjectYamlToFile(targetUri, result.data);
+      await buildProjectToFile(targetUri, result.data);
       clearManuscriptCache();
       result = await getManuscript();
     }
@@ -1160,7 +1311,7 @@ class ManuscriptTreeDataProvider
       else return;
       if (fromIdx === toIdx) return;
       const next = reorderChapters(result.data, fromIdx, toIdx);
-      await writeProjectYaml(result.projectFileUri, next);
+      await writeProject(result.projectFileUri, next);
     } else if (source.type === 'scene') {
       const fromCh = source.chapterIndex;
       const fromSc = source.sceneIndex;
@@ -1177,7 +1328,7 @@ class ManuscriptTreeDataProvider
         toSc = target.sceneIndex;
       } else return;
       const next = moveSceneInData(result.data, fromCh, fromSc, toCh, toSc);
-      await writeProjectYaml(result.projectFileUri, next);
+      await writeProject(result.projectFileUri, next);
     }
     clearManuscriptCache(result.projectFileUri);
     this.refresh();
@@ -1187,7 +1338,7 @@ class ManuscriptTreeDataProvider
 async function updateViewContext(result: ManuscriptResult): Promise<void> {
   await vscode.commands.executeCommand('setContext', 'noveltools.hasProjectFile', !!result.projectFileUri);
   await vscode.commands.executeCommand('setContext', 'noveltools.hasScenes', result.flatUris.length > 0);
-  const allIndex = await findAllIndexYaml();
+  const allIndex = await findAllProjectFiles();
   await vscode.commands.executeCommand('setContext', 'noveltools.hasMultipleDocuments', allIndex.length > 1);
 }
 

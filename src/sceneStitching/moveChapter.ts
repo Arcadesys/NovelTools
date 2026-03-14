@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { getManuscript, clearManuscriptCache } from './sceneList';
-import { reorderChapters } from './projectYaml';
-import { writeProjectYaml } from './projectFile';
+import { reorderChapters } from './projectData';
+import { writeProject } from './projectFile';
 
 export function registerMoveChapter(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
@@ -35,6 +35,6 @@ async function moveChapter(delta: number): Promise<void> {
   const toIndex = chapterIndex + delta;
   if (toIndex < 0 || toIndex >= result.data.chapters.length) return;
   const next = reorderChapters(result.data, chapterIndex, toIndex);
-  await writeProjectYaml(result.projectFileUri, next);
+  await writeProject(result.projectFileUri, next);
   clearManuscriptCache();
 }

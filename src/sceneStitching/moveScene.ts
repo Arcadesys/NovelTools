@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { getProjectFile } from '../config';
 import { getManuscript, clearManuscriptCache } from './sceneList';
-import { moveScene as moveSceneInData } from './projectYaml';
-import { buildProjectYamlToFile, writeProjectYaml } from './projectFile';
+import { moveScene as moveSceneInData } from './projectData';
+import { buildProjectToFile, writeProject } from './projectFile';
 
 type SceneNode = {
   type: 'scene';
@@ -29,7 +29,7 @@ async function moveScene(node: SceneNode | undefined, delta: number): Promise<vo
       segments.length > 1
         ? vscode.Uri.joinPath(folders[0].uri, ...segments)
         : vscode.Uri.joinPath(folders[0].uri, name);
-    await buildProjectYamlToFile(targetUri, result.data);
+    await buildProjectToFile(targetUri, result.data);
     clearManuscriptCache();
     result = await getManuscript();
   }
@@ -88,7 +88,7 @@ async function moveScene(node: SceneNode | undefined, delta: number): Promise<vo
   }
 
   const next = moveSceneInData(result.data, fromCh, fromSc, toCh, toSc);
-  await writeProjectYaml(result.projectFileUri, next);
+  await writeProject(result.projectFileUri, next);
   clearManuscriptCache();
   await vscode.commands.executeCommand('noveltools.refreshManuscript');
 }

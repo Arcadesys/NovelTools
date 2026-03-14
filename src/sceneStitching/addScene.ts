@@ -2,8 +2,8 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { getProjectFile } from '../config';
 import { getManuscript, clearManuscriptCache } from './sceneList';
-import { insertScene as insertSceneInData, scenePathsRelativeTo } from './projectYaml';
-import { buildProjectYamlToFile, writeProjectYaml } from './projectFile';
+import { insertScene as insertSceneInData, scenePathsRelativeTo } from './projectData';
+import { buildProjectToFile, writeProject } from './projectFile';
 
 type SceneNode = {
   type: 'scene';
@@ -37,7 +37,7 @@ async function addScene(node: SceneNode | undefined): Promise<void> {
       segments.length > 1
         ? vscode.Uri.joinPath(folders[0].uri, ...segments)
         : vscode.Uri.joinPath(folders[0].uri, name);
-    await buildProjectYamlToFile(targetUri, result.data);
+    await buildProjectToFile(targetUri, result.data);
     clearManuscriptCache();
     result = await getManuscript();
   }
@@ -121,7 +121,7 @@ async function addScene(node: SceneNode | undefined): Promise<void> {
   const insertIdx = sceneIdx + 1;
   const updated = insertSceneInData(result.data, chapterIdx, insertIdx, sceneUri, relPath);
 
-  await writeProjectYaml(result.projectFileUri, updated);
+  await writeProject(result.projectFileUri, updated);
   clearManuscriptCache(result.projectFileUri);
   await vscode.commands.executeCommand('noveltools.refreshManuscript');
 

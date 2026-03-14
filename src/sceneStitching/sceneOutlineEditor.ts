@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { clearManuscriptCache, getManuscript } from './sceneList';
-import type { SceneStatus } from './projectYaml';
+import type { SceneStatus } from './projectData';
 
 const PANEL_VIEW_TYPE = 'noveltools.sceneOutline';
 
@@ -29,9 +29,12 @@ interface OutlineModel {
 }
 
 const STATUS_EMOJI: Record<SceneStatus, string> = {
-  done: '🟢',
   drafted: '🟡',
+  revision: '🔵',
+  review: '🟠',
+  done: '🟢',
   spiked: '🔴',
+  cut: '⚫',
 };
 
 const COMMAND_WHITELIST = new Set([
@@ -349,7 +352,7 @@ export function registerSceneOutlineEditor(context: vscode.ExtensionContext): vo
 
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((doc) => {
-      if (activePanel && (doc.uri.fsPath.endsWith('.yaml') || doc.uri.fsPath.endsWith('.yml') || doc.uri.fsPath.endsWith('.md'))) {
+      if (activePanel && (doc.uri.fsPath.endsWith('.json') || doc.uri.fsPath.endsWith('.md') || doc.uri.fsPath.endsWith('.yaml') || doc.uri.fsPath.endsWith('.yml'))) {
         void updatePanel(activePanel);
       }
     })

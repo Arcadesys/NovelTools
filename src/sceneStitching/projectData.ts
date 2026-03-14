@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { parse as parseYaml } from 'yaml';
 
 /** Returns scene paths relative to baseDir for serialization (forward slashes for portability). */
 export function scenePathsRelativeTo(baseDir: vscode.Uri, sceneUris: vscode.Uri[]): string[] {
@@ -10,7 +11,7 @@ export function scenePathsRelativeTo(baseDir: vscode.Uri, sceneUris: vscode.Uri[
   });
 }
 
-export type SceneStatus = 'done' | 'drafted' | 'spiked';
+export type SceneStatus = 'drafted' | 'revision' | 'review' | 'done' | 'spiked' | 'cut';
 
 export interface ChapterData {
   title?: string;
@@ -20,13 +21,21 @@ export interface ChapterData {
   folderPath?: string;
 }
 
+export interface SceneMetadataEntry {
+  synopsis?: string;
+}
+
 export interface ManuscriptData {
   title?: string;
   chapters: ChapterData[];
   flatUris: vscode.Uri[];
   projectFileUri: vscode.Uri | null;
-  /** Per-section status: key = relative path (forward slashes), value = done | drafted | spiked. */
+  /** Per-section status: key = relative path (forward slashes). */
   sceneStatus?: Record<string, SceneStatus>;
+  /** Per-scene metadata: key = relative path (forward slashes). */
+  sceneMetadata?: Record<string, SceneMetadataEntry>;
+  /** Optional manuscript word count target. */
+  wordCountTarget?: number;
 }
 
 /** Chapter in canonical JSON: string = folder path, or object with folder and optional title/scenes. */
@@ -38,6 +47,8 @@ interface RawManuscript {
   title?: string;
   chapters: RawChapter[];
   sceneStatus?: Record<string, string>;
+  sceneMetadata?: Record<string, { synopsis?: string }>;
+  wordCountTarget?: number;
 }
 
 function normalizeRawChapter(ch: RawChapter): { title?: string; scenes?: string[]; folder?: string } {
@@ -57,7 +68,7 @@ function normalizeRawChapter(ch: RawChapter): { title?: string; scenes?: string[
   };
 }
 
-/** Build ManuscriptData from raw parsed content (shared by YAML and JSON parsers). */
+/** Build ManuscriptData from raw parsed content. */
 function rawToManuscriptData(raw: RawManuscript, projectFileUri: vscode.Uri): ManuscriptData | null {
   if (!raw || !Array.isArray(raw.chapters)) return null;
   const baseDir = vscode.Uri.joinPath(projectFileUri, '..');
@@ -122,18 +133,36 @@ function rawToManuscriptData(raw: RawManuscript, projectFileUri: vscode.Uri): Ma
   if (rawStatus && typeof rawStatus === 'object' && !Array.isArray(rawStatus)) {
     sceneStatus = {};
     for (const [k, v] of Object.entries(rawStatus)) {
-      if (v === 'done' || v === 'drafted' || v === 'spiked') sceneStatus[k] = v;
+      if (v === 'drafted' || v === 'revision' || v === 'review' || v === 'done' || v === 'spiked' || v === 'cut') sceneStatus[k] = v;
     }
     if (Object.keys(sceneStatus).length === 0) sceneStatus = undefined;
   }
+  let sceneMetadata: ManuscriptData['sceneMetadata'];
+  const rawMeta = raw.sceneMetadata;
+  if (rawMeta && typeof rawMeta === 'object' && !Array.isArray(rawMeta)) {
+    sceneMetadata = {};
+    for (const [k, v] of Object.entries(rawMeta)) {
+      if (v && typeof v === 'object') {
+        const entry: SceneMetadataEntry = {};
+        if (typeof v.synopsis === 'string') entry.synopsis = v.synopsis;
+        if (Object.keys(entry).length > 0) sceneMetadata[k] = entry;
+      }
+    }
+    if (Object.keys(sceneMetadata).length === 0) sceneMetadata = undefined;
+  }
   const mergedChapters = mergeConsecutiveChaptersByFolder(chapters);
   const mergedFlatUris = mergedChapters.flatMap((ch) => ch.sceneUris);
+  const wordCountTarget = typeof raw.wordCountTarget === 'number' && raw.wordCountTarget > 0
+    ? raw.wordCountTarget
+    : undefined;
   return {
     title: raw.title,
     chapters: mergedChapters,
     flatUris: mergedFlatUris,
     projectFileUri,
     sceneStatus,
+    sceneMetadata,
+    wordCountTarget,
   };
 }
 
@@ -144,14 +173,29 @@ export function parseProjectJson(
   try {
     const raw = JSON.parse(content) as RawManuscript | null;
     return raw ? rawToManuscriptData(raw, projectFileUri) : null;
-  } catch {
+  } catch (err) {
+    console.warn('[NovelTools] Failed to parse project file:', err instanceof Error ? err.message : String(err));
+    return null;
+  }
+}
+
+/** Parse a YAML project file (read-only backward compat). */
+export function parseProjectYaml(
+  content: string,
+  projectFileUri: vscode.Uri
+): ManuscriptData | null {
+  try {
+    const raw = parseYaml(content) as RawManuscript | null;
+    return raw ? rawToManuscriptData(raw, projectFileUri) : null;
+  } catch (err) {
+    console.warn('[NovelTools] Failed to parse YAML project file:', err instanceof Error ? err.message : String(err));
     return null;
   }
 }
 
 /**
  * Merge consecutive chapters that share the same folder into one chapter (preserves scene order).
- * Use when YAML has multiple "scenes" blocks per folder (e.g. one for title scene, one for the rest).
+ * Handles cases where multiple chapter entries reference the same folder.
  */
 function mergeConsecutiveChaptersByFolder(chapters: ChapterData[]): ChapterData[] {
   if (chapters.length <= 1) return chapters;
@@ -212,7 +256,8 @@ export async function resolveChapterFolders(
     let entries: [string, vscode.FileType][];
     try {
       entries = await vscode.workspace.fs.readDirectory(folderUri);
-    } catch {
+    } catch (err) {
+      console.warn(`[NovelTools] Could not read chapter folder "${ch.folderPath}":`, err instanceof Error ? err.message : String(err));
       chapters.push({ ...ch, sceneUris: [], scenePaths: [] });
       continue;
     }
@@ -280,6 +325,12 @@ export function serializeToJson(data: ManuscriptData, baseDir?: vscode.Uri): str
   };
   if (toSerialize.sceneStatus && Object.keys(toSerialize.sceneStatus).length > 0) {
     raw.sceneStatus = toSerialize.sceneStatus;
+  }
+  if (toSerialize.sceneMetadata && Object.keys(toSerialize.sceneMetadata).length > 0) {
+    raw.sceneMetadata = toSerialize.sceneMetadata;
+  }
+  if (toSerialize.wordCountTarget != null && toSerialize.wordCountTarget > 0) {
+    raw.wordCountTarget = toSerialize.wordCountTarget;
   }
   return JSON.stringify(raw, null, 2);
 }

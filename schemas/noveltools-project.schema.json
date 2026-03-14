@@ -46,9 +46,28 @@
       "type": "object",
       "additionalProperties": {
         "type": "string",
-        "enum": ["done", "drafted", "spiked"]
+        "enum": ["drafted", "revision", "review", "done", "spiked", "cut"]
       },
-      "description": "Optional. Maps scene path (relative) to status: done (green), drafted (yellow), spiked (red)."
+      "description": "Maps scene path (relative, forward slashes) to status. Icons: drafted (🟡), revision (🔵), review (🟠), done (🟢), spiked (🔴), cut (⚫)."
+    },
+    "sceneMetadata": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "synopsis": {
+            "type": "string",
+            "description": "One-line synopsis for the scene, shown as subtitle in sidebar."
+          }
+        }
+      },
+      "description": "Per-scene metadata keyed by relative path (forward slashes)."
+    },
+    "wordCountTarget": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Target word count for the manuscript. Status bar shows progress toward this goal."
     }
   },
   "required": ["chapters"]
