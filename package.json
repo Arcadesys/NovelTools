@@ -28,6 +28,7 @@
     "onCommand:noveltools.openStitchedManuscript",
     "onCommand:noveltools.openProjectYaml",
     "onCommand:noveltools.buildProjectYaml",
+    "onCommand:noveltools.newProject",
     "onCommand:noveltools.showQuickStart",
     "onCommand:noveltools.openSettings"
   ],
@@ -60,14 +61,9 @@
             "flat",
             "folder"
           ],
-          "description": "When building from files (no project YAML), group scenes into chapters by folder or keep a single flat chapter."
+          "description": "When building from files (no project file), group scenes into chapters by folder or keep a single flat chapter."
         },
-        "noveltools.indexYamlGlob": {
-          "type": "string",
-          "default": "**/*[iI]ndex*.{yaml,yml,YAML,YML,md,MD}",
-          "description": "Glob to discover index/manuscript files (Longform and NovelTools). Matches Index.YAML, index.yaml, Index.md, etc. Use archive/**/*[iI]ndex*.{yaml,yml,YAML,YML,md,MD} to restrict to a folder."
-        },
-        "noveltools.wordCount.stripMarkdown": {
+"noveltools.wordCount.stripMarkdown": {
           "type": "boolean",
           "default": false,
           "description": "If true, strip markdown before counting words."
@@ -79,7 +75,7 @@
             "project",
             "workspace"
           ],
-          "description": "Use project YAML scene list; or 'workspace' to count all .md in workspace."
+          "description": "Use project file scene list; or 'workspace' to count all .md in workspace."
         },
         "noveltools.chapterContextPath": {
           "type": "string",
@@ -235,13 +231,18 @@
       },
       {
         "command": "noveltools.buildProjectYaml",
-        "title": "NovelTools: Build Project YAML",
+        "title": "NovelTools: Build Project File",
         "icon": "$(new-file)"
       },
       {
         "command": "noveltools.openProjectYaml",
         "title": "NovelTools: Open Project File",
         "icon": "$(go-to-file)"
+      },
+      {
+        "command": "noveltools.newProject",
+        "title": "NovelTools: New Project",
+        "icon": "$(new-file)"
       },
       {
         "command": "noveltools.openSettings",
@@ -438,7 +439,5 @@
     "mocha": "^11.7.5",
     "typescript": "^5.0.0"
   },
-  "dependencies": {
-    "yaml": "^2.3.0"
-  }
+  "dependencies": {}
 }
