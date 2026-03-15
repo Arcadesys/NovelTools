@@ -1,0 +1,2 @@
+# For scripts/stitch.py (used by release workflow)
+pyyaml>=6.0

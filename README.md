@@ -9,6 +9,50 @@ A Cursor/VS Code extension for long-form writing: scene stitching, manuscript si
 - **Word counts**: Per-document word count and manuscript total in the status bar.
 - **Section status**: Mark each scene as done (🟢), drafted (🟡), or spiked out (🔴) from the Manuscript view context menu. Status is stored in the project file so you can see progress at a glance.
 
+## Manuscript Build Pipeline
+
+NovelTools includes a GitHub Actions pipeline that stitches your manuscript from markdown scenes and builds PDF, EPUB, and TXT releases automatically.
+
+### Prerequisites
+
+- Python 3.10+ (for `stitch.py`)
+- A GitHub repository for your manuscript
+- Docker (used by the GitHub Action for pandoc/LaTeX builds)
+
+### Quick start
+
+1. Clone or download the NovelTools repo
+2. Run the init script in your manuscript repo:
+   ```bash
+   python /path/to/NovelTools/noveltools-init.py /path/to/my-manuscript
+   # or cd into your manuscript repo and run:
+   python /path/to/NovelTools/noveltools-init.py
+   ```
+3. Edit `noveltools.yaml` to define your title and chapter/scene structure
+4. Edit `release-config.yaml` to customize formatting (or keep the defaults)
+5. Commit and push a version tag to trigger a release:
+   ```bash
+   git tag v1.0.0 && git push origin v1.0.0
+   ```
+6. GitHub Actions builds and publishes MD, PDF, EPUB, and TXT artifacts
+
+### What `noveltools-init` creates
+
+| File | Location | Purpose |
+|------|----------|---------|
+| `release.yml` | `.github/workflows/` | Build + release workflow (reads title from `noveltools.yaml`) |
+| `manuscript-header.tex` | `.github/` | LaTeX header (double-spaced, 1" margins) |
+| `stitch.py` | `scripts/` | Stitches scenes into a single manuscript |
+| `requirements.txt` | repo root | Python dependencies (`pyyaml`) |
+| `noveltools.yaml` | repo root | Manuscript structure (title, chapters, scenes) |
+| `release-config.yaml` | repo root | Build formatting (scene headers, chapter titles, PDF/EPUB options) |
+
+The init script warns before overwriting existing files. Pass `--force` to skip prompts.
+
+### Manual builds
+
+Use `workflow_dispatch` in the GitHub Actions tab to trigger a build without pushing a tag. The output uses the current date as the version.
+
 ## Troubleshooting
 
 **“Cannot register 'noveltools.sceneGlob'. This property is already registered.”** — The extension is loaded twice (e.g. you have NovelTools installed and are also running from source). Fix: in the main Cursor window open **Extensions** (Ctrl+Shift+X / Cmd+Shift+X), find **NovelTools**, and **Uninstall**. Then use only the Extension Development Host (F5) when developing from source.

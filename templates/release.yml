@@ -1,0 +1,109 @@
+# Release: manuscript as Markdown, PDF, EPUB, and TXT
+# Triggers when a version tag is pushed (e.g. v1.0.0). Uses stitch.py for main's layout.
+# Manual dispatch also supported.
+# Title is read dynamically from noveltools.yaml — no hardcoded manuscript name.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && github.sha || github.ref }}
+          fetch-depth: 0
+
+      - name: Read title from noveltools.yaml
+        id: meta
+        run: |
+          TITLE=$(python3 -c "
+          import yaml, sys
+          with open('noveltools.yaml') as f:
+              cfg = yaml.safe_load(f)
+          print(cfg.get('title', 'Manuscript'))
+          ")
+          echo "title=$TITLE" >> $GITHUB_OUTPUT
+          echo "TITLE=$TITLE" >> $GITHUB_ENV
+
+      - name: Set version and paths
+        id: vars
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          if [[ -n "${{ github.ref_name }}" && "${{ github.ref_name }}" == v* ]]; then
+            VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v\.*//')
+          else
+            VERSION="$DATE"
+          fi
+          MS_FILE="manuscript/$TITLE $VERSION.md"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "ms_file=$MS_FILE" >> $GITHUB_OUTPUT
+          echo "MS_FILE=$MS_FILE" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Stitch manuscript
+        run: |
+          mkdir -p manuscript
+          python scripts/stitch.py --root . -o stitched.md
+          cp stitched.md "$MS_FILE"
+
+      - name: Build PDF (traditional manuscript)
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work pandoc/latex:3.1 \
+            "$MS_FILE" -o "manuscript/$TITLE $VERSION.pdf" \
+            --pdf-engine=xelatex \
+            -V geometry:margin=1in \
+            -V fontsize=12pt \
+            -V documentclass=book \
+            -V papersize=letter \
+            --include-in-header=.github/manuscript-header.tex \
+            --toc
+
+      - name: Build EPUB
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work pandoc/latex:3.1 \
+            "$MS_FILE" -o "manuscript/$TITLE $VERSION.epub" \
+            --toc
+
+      - name: Build TXT
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work pandoc/latex:3.1 \
+            "$MS_FILE" -o "manuscript/$TITLE $VERSION.txt"
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: |
+            ## Manuscript
+            - Markdown – full manuscript
+            - PDF – print-ready, traditional manuscript (double-spaced, 1" margins, 12pt)
+            - EPUB – e-reader format
+            - TXT – plain text
+          files: |
+            manuscript/${{ env.TITLE }} ${{ steps.vars.outputs.version }}.md
+            manuscript/${{ env.TITLE }} ${{ steps.vars.outputs.version }}.pdf
+            manuscript/${{ env.TITLE }} ${{ steps.vars.outputs.version }}.epub
+            manuscript/${{ env.TITLE }} ${{ steps.vars.outputs.version }}.txt
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

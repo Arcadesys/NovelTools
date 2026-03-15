@@ -1,0 +1,25 @@
+# noveltools.yaml — Manuscript structure configuration
+#
+# This file defines how your manuscript is organized for stitching and builds.
+# The title is used in output filenames (PDF, EPUB, etc.) and the release.
+#
+# chapters: a list of chapter objects, each with:
+#   folder: path to the chapter's directory (relative to this file)
+#   scenes: ordered list of scene filenames within that folder
+#           If a scene lives in a different chapter's folder, use "FOLDER/scene.md"
+#
+# Example:
+#   chapters:
+#     - folder: "Chapter 1"
+#       scenes:
+#         - "Opening scene.md"
+#         - "Second scene.md"
+#     - folder: "Chapter 2"
+#       scenes:
+#         - "The big reveal.md"
+
+title: "My Manuscript"
+chapters:
+  - folder: "Chapter 1"
+    scenes:
+      - "Scene 1.md"

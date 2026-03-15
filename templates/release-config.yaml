@@ -1,0 +1,43 @@
+# release-config.yaml — Build formatting configuration
+#
+# Controls how stitch.py formats the stitched manuscript and how pandoc
+# builds the PDF, EPUB, and TXT outputs.
+
+# Scene formatting: how to separate and identify scenes
+scenes:
+  # header options:
+  #   filename       — "# {filename}" before each scene
+  #   numeric        — numeric IDs (e.g. "1.1", "1.2", "2.1"...)
+  #   numeric_filename — "1.1: {filename}"
+  #   simple_break   — just ---- between scenes, no header
+  header: simple_break
+
+# Chapter formatting
+chapters:
+  # Use folder names as chapter titles (true), or only custom titles (false)
+  use_folder_names: true
+  # Override specific chapter titles (key = folder name from noveltools.yaml)
+  titles: {}
+  #   "Chapter 1": "Prologue"
+  #   "Chapter 2": "1. The Beginning"
+
+# PDF options (passed to pandoc)
+# See: https://pandoc.org/MANUAL.html#variables-for-latex
+pdf:
+  engine: xelatex
+  variables:
+    geometry:
+      - margin=1in
+    fontsize: 12pt
+    documentclass: book
+    papersize: letter
+  toc: true
+
+# EPUB options (passed to pandoc)
+# See: https://pandoc.org/MANUAL.html#option--epub
+epub:
+  toc: true
+  # metadata:
+  #   title: "My Manuscript"
+  #   author: "Author Name"
+  #   lang: "en-US"
