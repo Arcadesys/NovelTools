@@ -83,11 +83,20 @@ type WebviewMessage =
 
 export function registerSceneCardsView(context: vscode.ExtensionContext): void {
   const provider = new SceneCardsViewProvider();
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(VIEW_ID, provider, {
-      webviewOptions: { retainContextWhenHidden: true },
-    })
-  );
+  try {
+    context.subscriptions.push(
+      vscode.window.registerWebviewViewProvider(VIEW_ID, provider, {
+        webviewOptions: { retainContextWhenHidden: true },
+      })
+    );
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error(`[NovelTools] Scene Cards view registration failed:`, err);
+    void vscode.window.showErrorMessage(
+      `NovelTools: Scene Cards panel failed to register. ${detail}`
+    );
+    return;
+  }
 
   context.subscriptions.push(
     vscode.commands.registerCommand('noveltools.refreshSceneCards', async () => {
@@ -299,10 +308,15 @@ function simplifyLine(line: string): string {
 function renderHtml(webview: vscode.Webview, nonce: string, model: SceneCardsModel): string {
   const chaptersHtml = model.hasData
     ? model.chapters.map((chapter) => renderChapter(chapter)).join('')
-    : `<div class="empty-panel">
-         <h3>No manuscript data yet</h3>
-         <p>Build a project file from your markdown scenes to populate this view.</p>
-       </div>`;
+    : model.hasProjectFile
+      ? `<div class="empty-panel">
+           <h3>No scenes found</h3>
+           <p>Your project file was found but contains no scene data yet. Add scenes to your project to populate this view.</p>
+         </div>`
+      : `<div class="empty-panel">
+           <h3>No project file found</h3>
+           <p>Open a folder with a <code>noveltools.json</code> to get started, or build one from your markdown scenes.</p>
+         </div>`;
 
   const buildOrOpenLabel = model.hasProjectFile ? 'Open Project File' : 'Build Project File';
   const buildOrOpenCommand = model.hasProjectFile ? 'noveltools.openProjectYaml' : 'noveltools.buildProjectYaml';

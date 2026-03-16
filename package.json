@@ -434,7 +434,8 @@
         },
         {
           "id": "noveltools.sceneCards",
-          "name": "Scene Cards"
+          "name": "Scene Cards",
+          "type": "webview"
         },
         {
           "id": "noveltools.outline",
