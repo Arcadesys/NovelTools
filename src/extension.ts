@@ -13,7 +13,6 @@ import { initSceneList } from './sceneStitching/sceneList';
 import { registerNewProject } from './sceneStitching/newProject';
 import { registerMigrateToJson } from './sceneStitching/migrateToJson';
 import { registerMetadataPanel } from './sceneStitching/metadataPanel';
-import { registerOutlineView } from './sceneStitching/outlineView';
 import { registerCompile } from './sceneStitching/compile';
 import { registerAiWorkflows } from './sceneStitching/aiWorkflows';
 
@@ -42,7 +41,6 @@ export function activate(context: vscode.ExtensionContext): void {
   safeRegister('New Project', () => registerNewProject(context));
   safeRegister('Migrate to JSON', () => registerMigrateToJson(context));
   safeRegister('Metadata Panel', () => registerMetadataPanel(context));
-  safeRegister('Outline View', () => registerOutlineView(context));
   safeRegister('Compile', () => registerCompile(context));
   safeRegister('AI Workflows', () => registerAiWorkflows(context));
 }

@@ -32,7 +32,6 @@
     "onCommand:noveltools.migrateToJson",
     "onCommand:noveltools.showQuickStart",
     "onCommand:noveltools.openSettings",
-    "onView:noveltools.outline",
     "onCommand:noveltools.editSceneMetadata",
     "onCommand:noveltools.compileManuscript",
     "onCommand:noveltools.manageCompileProfiles",
@@ -342,39 +341,29 @@
         "icon": "$(map)"
       },
       {
-        "command": "noveltools.refreshOutline",
-        "title": "NovelTools: Refresh Outline",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "noveltools.outlineFilterByPov",
+        "command": "noveltools.filterByPov",
         "title": "Filter by POV",
         "icon": "$(person)"
       },
       {
-        "command": "noveltools.outlineFilterBySetting",
+        "command": "noveltools.filterBySetting",
         "title": "Filter by Setting",
         "icon": "$(location)"
       },
       {
-        "command": "noveltools.outlineFilterByTag",
+        "command": "noveltools.filterByTag",
         "title": "Filter by Tag",
         "icon": "$(tag)"
       },
       {
-        "command": "noveltools.outlineClearFilters",
+        "command": "noveltools.clearFilters",
         "title": "Clear Filters",
         "icon": "$(clear-all)"
       },
       {
-        "command": "noveltools.outlineSortBy",
+        "command": "noveltools.sortBy",
         "title": "Sort By…",
         "icon": "$(sort-precedence)"
-      },
-      {
-        "command": "noveltools.outlineEditMetadata",
-        "title": "Edit Metadata…",
-        "icon": "$(info)"
       },
       {
         "command": "noveltools.compileManuscript",
@@ -436,10 +425,6 @@
           "id": "noveltools.sceneCards",
           "name": "Scene Cards",
           "type": "webview"
-        },
-        {
-          "id": "noveltools.outline",
-          "name": "Outline"
         }
       ]
     },
@@ -477,24 +462,19 @@
           "group": "navigation@4"
         },
         {
-          "command": "noveltools.outlineFilterByPov",
-          "when": "view == noveltools.outline",
-          "group": "navigation@1"
+          "command": "noveltools.filterByPov",
+          "when": "view == noveltools.manuscript",
+          "group": "navigation@5"
         },
         {
-          "command": "noveltools.outlineSortBy",
-          "when": "view == noveltools.outline",
-          "group": "navigation@2"
+          "command": "noveltools.sortBy",
+          "when": "view == noveltools.manuscript",
+          "group": "navigation@6"
         },
         {
-          "command": "noveltools.outlineClearFilters",
-          "when": "view == noveltools.outline",
-          "group": "navigation@3"
-        },
-        {
-          "command": "noveltools.refreshOutline",
-          "when": "view == noveltools.outline",
-          "group": "navigation@4"
+          "command": "noveltools.clearFilters",
+          "when": "view == noveltools.manuscript",
+          "group": "navigation@7"
         }
       ],
       "view/item/context": [
@@ -627,11 +607,6 @@
           "command": "noveltools.aiCheckDialogue",
           "when": "view == noveltools.manuscript && viewItem == scene",
           "group": "ai@2"
-        },
-        {
-          "command": "noveltools.outlineEditMetadata",
-          "when": "view == noveltools.outline && viewItem == outlineScene",
-          "group": "inline@0"
         }
       ]
     }
