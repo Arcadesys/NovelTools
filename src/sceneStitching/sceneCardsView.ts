@@ -20,15 +20,6 @@ const STATUS_LABEL: Record<SceneStatus, string> = {
   cut: 'Cut',
 };
 
-const STATUS_CLASS: Record<SceneStatus, string> = {
-  drafted: 'status-drafted',
-  revision: 'status-revision',
-  review: 'status-review',
-  done: 'status-done',
-  spiked: 'status-spiked',
-  cut: 'status-cut',
-};
-
 const COMMAND_WHITELIST = new Set([
   'noveltools.refreshManuscript',
   'noveltools.refreshSceneCards',
@@ -47,7 +38,7 @@ interface SceneCardModel {
   title: string;
   relativePath: string;
   uri: string;
-  previewLines: string[];
+  synopsis: string;
   status?: SceneStatus;
 }
 
@@ -231,13 +222,15 @@ async function buildSceneCardsModel(): Promise<SceneCardsModel> {
       const scenePath = chapter.scenePaths[sceneIndex] ?? fallbackPath;
       const pathKey = scenePath.split(path.sep).join('/');
       const status = result.data?.sceneStatus?.[pathKey];
+      const metaSynopsis = result.data?.sceneMetadata?.[pathKey]?.synopsis;
+      const synopsis = metaSynopsis || await readFirstContentLine(uri);
       return {
         chapterIndex,
         sceneIndex,
         title: path.basename(uri.fsPath),
         relativePath: vscode.workspace.asRelativePath(uri),
         uri: uri.toString(),
-        previewLines: await readScenePreview(uri),
+        synopsis,
         status,
       };
     });
@@ -261,18 +254,17 @@ async function buildSceneCardsModel(): Promise<SceneCardsModel> {
   };
 }
 
-async function readScenePreview(uri: vscode.Uri): Promise<string[]> {
+async function readFirstContentLine(uri: vscode.Uri): Promise<string> {
   try {
     const bytes = await vscode.workspace.fs.readFile(uri);
     const text = new TextDecoder().decode(bytes);
-    const preview = extractPreviewLines(text);
-    return preview.length > 0 ? preview : ['No text yet.'];
+    return extractFirstLine(text);
   } catch {
-    return ['Unable to read this file.'];
+    return '';
   }
 }
 
-function extractPreviewLines(text: string): string[] {
+function extractFirstLine(text: string): string {
   let content = text.replace(/\r\n/g, '\n');
   if (content.startsWith('---\n')) {
     const end = content.indexOf('\n---\n', 4);
@@ -280,11 +272,11 @@ function extractPreviewLines(text: string): string[] {
       content = content.slice(end + 5);
     }
   }
-  return content
-    .split('\n')
-    .map((line) => simplifyLine(line))
-    .filter((line) => line.length > 0)
-    .slice(0, 3);
+  for (const raw of content.split('\n')) {
+    const line = simplifyLine(raw);
+    if (line.length > 0) return line;
+  }
+  return '';
 }
 
 function simplifyLine(line: string): string {
@@ -318,264 +310,110 @@ function renderHtml(webview: vscode.Webview, nonce: string, model: SceneCardsMod
            <p>Open a folder with a <code>noveltools.json</code> to get started, or build one from your markdown scenes.</p>
          </div>`;
 
-  const buildOrOpenLabel = model.hasProjectFile ? 'Open Project File' : 'Build Project File';
-  const buildOrOpenCommand = model.hasProjectFile ? 'noveltools.openProjectYaml' : 'noveltools.buildProjectYaml';
-  const documentButton = model.hasMultipleDocuments
-    ? '<button class="action-btn" data-action="command" data-command="noveltools.selectDocument">Select Document</button>'
-    : '';
-
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Manuscript</title>
+  <title>Scene Cards</title>
   <style>
     :root {
-      --nt-radius: 12px;
-      --nt-radius-small: 8px;
       --nt-border: var(--vscode-panel-border);
-      --nt-bg-soft: var(--vscode-sideBar-background);
       --nt-bg-card: var(--vscode-editorWidget-background, var(--vscode-editor-background));
       --nt-accent: var(--vscode-focusBorder);
       --nt-fg-muted: var(--vscode-descriptionForeground);
       --nt-fg-strong: var(--vscode-editor-foreground);
     }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      margin: 0;
-      padding: 12px;
+      padding: 8px;
       color: var(--nt-fg-strong);
-      background: linear-gradient(180deg, var(--vscode-sideBar-background), var(--vscode-editor-background));
-      font: 13px/1.45 var(--vscode-font-family, ui-sans-serif, system-ui, sans-serif);
+      font: 12px/1.4 var(--vscode-font-family, ui-sans-serif, system-ui, sans-serif);
     }
-    .header {
-      background: var(--nt-bg-soft);
-      border: 1px solid var(--nt-border);
-      border-radius: var(--nt-radius);
-      padding: 12px;
-      margin-bottom: 12px;
-    }
-    .title-row {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-    .title-row h2 {
-      margin: 0;
-      font-size: 14px;
-      font-weight: 650;
-      letter-spacing: 0.02em;
-    }
-    .meta {
-      color: var(--nt-fg-muted);
-      font-size: 11px;
-      white-space: nowrap;
-    }
-    .submeta {
-      color: var(--nt-fg-muted);
-      font-size: 11px;
-      margin: 0 0 10px;
-    }
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    .action-btn {
-      border: 1px solid var(--nt-border);
-      border-radius: var(--nt-radius-small);
-      background: var(--nt-bg-card);
-      color: var(--nt-fg-strong);
-      font: inherit;
-      font-size: 11px;
-      padding: 4px 8px;
-      cursor: pointer;
-    }
-    .action-btn:hover {
-      border-color: var(--nt-accent);
-      background: var(--vscode-list-hoverBackground);
-    }
-    .chapter {
-      margin-bottom: 14px;
-      border-radius: var(--nt-radius);
-      padding: 2px;
-    }
+    .chapter { margin-bottom: 12px; }
     .chapter-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin: 0 2px 8px;
-      cursor: grab;
-      user-select: none;
-    }
-    .chapter-header h3 {
-      margin: 0;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: var(--nt-fg-muted);
+      padding: 4px 2px;
+      user-select: none;
     }
-    .chapter-count {
-      color: var(--nt-fg-muted);
-      font-size: 11px;
-    }
-    .cards {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 8px;
-      min-height: 4px;
-    }
-    .scene-card {
-      border: 1px solid var(--nt-border);
-      border-radius: var(--nt-radius);
-      background: var(--nt-bg-card);
-      padding: 10px;
+    .scene-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      padding: 4px 6px;
       cursor: pointer;
       text-align: left;
       width: 100%;
       color: inherit;
+      font: inherit;
     }
-    .scene-card:hover {
-      border-color: var(--nt-accent);
-      transform: translateY(-1px);
+    .scene-row:hover {
+      background: var(--vscode-list-hoverBackground);
     }
-    .scene-title-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      margin-bottom: 4px;
+    .scene-row:focus-visible {
+      outline: 1px solid var(--nt-accent);
+      outline-offset: -1px;
     }
     .scene-title {
-      font-size: 12px;
-      font-weight: 620;
-      line-height: 1.3;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-weight: 600;
       white-space: nowrap;
+      flex-shrink: 0;
     }
-    .scene-path {
+    .scene-synopsis {
       color: var(--nt-fg-muted);
-      font-size: 10px;
-      margin-bottom: 7px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      flex: 1;
+      min-width: 0;
     }
-    .scene-preview {
-      display: grid;
-      gap: 2px;
-      font-size: 11px;
-      color: var(--vscode-editor-foreground);
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
     }
-    .scene-preview p {
-      margin: 0;
-      min-height: 1.2em;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .status-pill {
-      border-radius: 999px;
-      font-size: 10px;
-      line-height: 1;
-      padding: 4px 6px;
-      border: 1px solid transparent;
-      white-space: nowrap;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .status-drafted {
-      border-color: var(--vscode-testing-iconQueued);
-      color: var(--vscode-testing-iconQueued);
-    }
-    .status-revision {
-      border-color: var(--vscode-charts-blue);
-      color: var(--vscode-charts-blue);
-    }
-    .status-review {
-      border-color: var(--vscode-charts-orange);
-      color: var(--vscode-charts-orange);
-    }
-    .status-done {
-      border-color: var(--vscode-testing-iconPassed);
-      color: var(--vscode-testing-iconPassed);
-    }
-    .status-spiked {
-      border-color: var(--vscode-testing-iconFailed);
-      color: var(--vscode-testing-iconFailed);
-    }
-    .status-cut {
-      border-color: var(--vscode-descriptionForeground);
-      color: var(--vscode-descriptionForeground);
-    }
+    .dot-drafted { background: var(--vscode-testing-iconQueued); }
+    .dot-revision { background: var(--vscode-charts-blue); }
+    .dot-review { background: var(--vscode-charts-orange); }
+    .dot-done { background: var(--vscode-testing-iconPassed); }
+    .dot-spiked { background: var(--vscode-testing-iconFailed); }
+    .dot-cut { background: var(--vscode-descriptionForeground); }
     .empty-panel {
       border: 1px dashed var(--nt-border);
-      border-radius: var(--nt-radius);
-      background: var(--nt-bg-soft);
+      border-radius: 8px;
+      background: var(--nt-bg-card);
       padding: 16px;
     }
     .empty-panel h3 {
-      margin: 0 0 6px 0;
       font-size: 13px;
+      margin-bottom: 6px;
     }
     .empty-panel p {
-      margin: 0;
       color: var(--nt-fg-muted);
     }
   </style>
 </head>
 <body>
-  <section class="header">
-    <div class="title-row">
-      <h2>${escapeHtml(model.manuscriptTitle)}</h2>
-      <span class="meta">${model.chapterCount} chapters · ${model.sceneCount} scenes</span>
-    </div>
-    <p class="submeta">Click a scene card to open it. Reorder chapters and scenes from the Manuscript tree.</p>
-    <div class="actions">
-      <button class="action-btn" data-action="command" data-command="noveltools.refreshManuscript">Refresh</button>
-      <button class="action-btn" data-action="command" data-command="${buildOrOpenCommand}">${buildOrOpenLabel}</button>
-      <button class="action-btn" data-action="command" data-command="noveltools.openStitchedManuscript">Open Stitched</button>
-      <button class="action-btn" data-action="command" data-command="noveltools.openSceneOutline">Scene outline</button>
-      <button class="action-btn" data-action="command" data-command="noveltools.showQuickStart">Quick Start</button>
-      ${documentButton}
-    </div>
-  </section>
   ${chaptersHtml}
 
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
 
-    let suppressClickUntil = 0;
-    const resetClickSuppression = () => {
-      suppressClickUntil = Date.now() + 120;
-    };
-
     document.querySelectorAll('[data-action="open-scene"]').forEach((node) => {
       node.addEventListener('click', () => {
-        if (Date.now() < suppressClickUntil) return;
         const rawUri = node.getAttribute('data-uri');
         if (!rawUri) return;
         vscode.postMessage({ type: 'openScene', uri: decodeURIComponent(rawUri) });
       });
-    });
-
-    document.querySelectorAll('[data-action="command"]').forEach((node) => {
-      node.addEventListener('click', () => {
-        const command = node.getAttribute('data-command');
-        if (!command) return;
-        vscode.postMessage({ type: 'runCommand', command });
-      });
-    });
-
-    // Keep a short click suppression window to avoid accidental double-activations.
-    document.addEventListener('mouseup', () => {
-      resetClickSuppression();
     });
   </script>
 </body>
@@ -583,37 +421,20 @@ function renderHtml(webview: vscode.Webview, nonce: string, model: SceneCardsMod
 }
 
 function renderChapter(chapter: ChapterCardModel): string {
-  return `<section class="chapter" data-chapter-block="true">
-    <header class="chapter-header">
-      <h3>${escapeHtml(chapter.title)}</h3>
-      <span class="chapter-count">${chapter.scenes.length} scenes</span>
-    </header>
-    <div class="cards">
-      ${chapter.scenes.map((scene) => renderSceneCard(scene)).join('')}
-    </div>
+  return `<section class="chapter">
+    <div class="chapter-header">${escapeHtml(chapter.title)}</div>
+    ${chapter.scenes.map((scene) => renderSceneCard(scene)).join('')}
   </section>`;
 }
 
 function renderSceneCard(scene: SceneCardModel): string {
-  const status = scene.status
-    ? `<span class="status-pill ${STATUS_CLASS[scene.status]}">${STATUS_LABEL[scene.status]}</span>`
+  const dot = scene.status
+    ? `<span class="status-dot dot-${scene.status}" title="${STATUS_LABEL[scene.status]}"></span>`
     : '';
-  const preview = scene.previewLines
-    .map((line) => `<p>${escapeHtml(line)}</p>`)
-    .join('');
-  return `<button
-      class="scene-card"
-      data-action="open-scene"
-      data-chapter-index="${scene.chapterIndex}"
-      data-scene-index="${scene.sceneIndex}"
-      data-uri="${encodeURIComponent(scene.uri)}"
-    >
-    <div class="scene-title-row">
-      <span class="scene-title">${escapeHtml(scene.title)}</span>
-      ${status}
-    </div>
-    <div class="scene-path">${escapeHtml(scene.relativePath)}</div>
-    <div class="scene-preview">${preview}</div>
+  const synopsisText = scene.synopsis || 'No synopsis';
+  const muted = scene.synopsis ? '' : ' style="font-style:italic;opacity:0.6"';
+  return `<button class="scene-row" data-action="open-scene" data-uri="${encodeURIComponent(scene.uri)}">
+    ${dot}<span class="scene-title">${escapeHtml(scene.title)}</span><span class="scene-synopsis"${muted}>${escapeHtml(synopsisText)}</span>
   </button>`;
 }
 
