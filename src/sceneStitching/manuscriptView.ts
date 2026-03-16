@@ -1047,6 +1047,60 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       }
     })
   );
+
+  // Filter/sort commands (consolidated from OutlineView)
+  context.subscriptions.push(
+    vscode.commands.registerCommand('noveltools.filterByPov', async () => {
+      const result = await getManuscript();
+      if (!result?.data) return;
+      const povs = new Set<string>();
+      for (const meta of Object.values(result.data.sceneMetadata ?? {})) {
+        if (meta.pov) povs.add(meta.pov);
+      }
+      if (povs.size === 0) { vscode.window.showInformationMessage('No POV characters set on any scene.'); return; }
+      const items = [{ label: '$(clear-all) Show All', pov: undefined as string | undefined }, ...Array.from(povs).sort().map((p) => ({ label: p, pov: p }))];
+      const picked = await vscode.window.showQuickPick(items, { placeHolder: 'Filter by POV character' });
+      if (picked !== undefined) treeDataProvider.setFilter('pov', picked.pov);
+    }),
+
+    vscode.commands.registerCommand('noveltools.filterBySetting', async () => {
+      const result = await getManuscript();
+      if (!result?.data) return;
+      const settings = new Set<string>();
+      for (const meta of Object.values(result.data.sceneMetadata ?? {})) {
+        if (meta.setting) settings.add(meta.setting);
+      }
+      if (settings.size === 0) { vscode.window.showInformationMessage('No settings defined on any scene.'); return; }
+      const items = [{ label: '$(clear-all) Show All', setting: undefined as string | undefined }, ...Array.from(settings).sort().map((s) => ({ label: s, setting: s }))];
+      const picked = await vscode.window.showQuickPick(items, { placeHolder: 'Filter by setting' });
+      if (picked !== undefined) treeDataProvider.setFilter('setting', picked.setting);
+    }),
+
+    vscode.commands.registerCommand('noveltools.filterByTag', async () => {
+      const result = await getManuscript();
+      if (!result?.data) return;
+      const allTags = new Set<string>();
+      for (const meta of Object.values(result.data.sceneMetadata ?? {})) {
+        for (const t of meta.tags ?? []) allTags.add(t);
+      }
+      if (allTags.size === 0) { vscode.window.showInformationMessage('No tags set on any scene.'); return; }
+      const items = [{ label: '$(clear-all) Show All', tag: undefined as string | undefined }, ...Array.from(allTags).sort().map((t) => ({ label: t, tag: t }))];
+      const picked = await vscode.window.showQuickPick(items, { placeHolder: 'Filter by tag' });
+      if (picked !== undefined) treeDataProvider.setFilter('tag', picked.tag);
+    }),
+
+    vscode.commands.registerCommand('noveltools.clearFilters', () => treeDataProvider.clearFilters()),
+
+    vscode.commands.registerCommand('noveltools.sortBy', async () => {
+      const options: { label: string; sort: 'manuscript' | 'timeline' | 'status' }[] = [
+        { label: 'Manuscript Order', sort: 'manuscript' },
+        { label: 'Timeline', sort: 'timeline' },
+        { label: 'Status', sort: 'status' },
+      ];
+      const picked = await vscode.window.showQuickPick(options, { placeHolder: 'Sort scenes by…' });
+      if (picked) treeDataProvider.setSortBy(picked.sort);
+    })
+  );
 }
 
 class ManuscriptTreeDataProvider
@@ -1055,6 +1109,12 @@ class ManuscriptTreeDataProvider
   private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
+  // Filter/sort state (merged from OutlineView)
+  private filterPov: string | undefined;
+  private filterSetting: string | undefined;
+  private filterTag: string | undefined;
+  private sortBy: 'manuscript' | 'timeline' | 'status' = 'manuscript';
+
   constructor(private readonly extensionContext: vscode.ExtensionContext) {}
 
   dragMimeTypes = [MIME_TREE];
@@ -1062,6 +1122,38 @@ class ManuscriptTreeDataProvider
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
+  }
+
+  setFilter(key: 'pov' | 'setting' | 'tag', value: string | undefined): void {
+    if (key === 'pov') this.filterPov = value;
+    else if (key === 'setting') this.filterSetting = value;
+    else if (key === 'tag') this.filterTag = value;
+    this.refresh();
+  }
+
+  clearFilters(): void {
+    this.filterPov = undefined;
+    this.filterSetting = undefined;
+    this.filterTag = undefined;
+    this.refresh();
+  }
+
+  setSortBy(sort: 'manuscript' | 'timeline' | 'status'): void {
+    this.sortBy = sort;
+    this.refresh();
+  }
+
+  get hasActiveFilters(): boolean {
+    return !!(this.filterPov || this.filterSetting || this.filterTag) || this.sortBy !== 'manuscript';
+  }
+
+  private passesFilter(data: ManuscriptData, scenePath: string): boolean {
+    const pathKey = scenePath.split(path.sep).join('/');
+    const metadata = data.sceneMetadata?.[pathKey] ?? {};
+    if (this.filterPov && metadata.pov?.toLowerCase() !== this.filterPov.toLowerCase()) return false;
+    if (this.filterSetting && metadata.setting?.toLowerCase() !== this.filterSetting.toLowerCase()) return false;
+    if (this.filterTag && !(metadata.tags ?? []).some((t) => t.toLowerCase() === this.filterTag!.toLowerCase())) return false;
+    return true;
   }
 
   getTreeItem(element: TreeNode): vscode.TreeItem {
@@ -1195,6 +1287,11 @@ class ManuscriptTreeDataProvider
           data: null,
         }];
       }
+      // When sorting by non-manuscript order, show flat scene list at root
+      if (this.sortBy !== 'manuscript' && !element) {
+        return this.getFlatSortedScenes(result.data!);
+      }
+
       if (element) {
         if (element.type === 'root' && element.data) {
           return element.data.chapters.map((ch, i) => ({
@@ -1206,23 +1303,7 @@ class ManuscriptTreeDataProvider
         }
         if (element.type === 'chapter') {
           const ch = element.data.chapters[element.chapterIndex];
-          return ch.sceneUris.map((uri, i) => {
-            const scenePath = ch.scenePaths[i] ?? path.relative(
-              element.data.projectFileUri ? path.dirname(element.data.projectFileUri.fsPath) : '',
-              uri.fsPath
-            );
-            const pathKey = scenePath.split(path.sep).join('/');
-            const status = element.data.sceneStatus?.[pathKey];
-            return {
-              type: 'scene' as const,
-              chapterIndex: element.chapterIndex,
-              sceneIndex: i,
-              uri,
-              label: path.basename(uri.fsPath),
-              status,
-              data: element.data,
-            };
-          });
+          return this.buildSceneNodes(element.data, ch, element.chapterIndex);
         }
         return [];
       }
@@ -1240,6 +1321,53 @@ class ManuscriptTreeDataProvider
         data: null,
       }];
     }
+  }
+
+  private buildSceneNodes(
+    data: ManuscriptData,
+    ch: ManuscriptData['chapters'][number],
+    chapterIndex: number
+  ): SceneNode[] {
+    const nodes: SceneNode[] = [];
+    for (let i = 0; i < ch.sceneUris.length; i++) {
+      const scenePath = ch.scenePaths[i] ?? path.relative(
+        data.projectFileUri ? path.dirname(data.projectFileUri.fsPath) : '',
+        ch.sceneUris[i].fsPath
+      );
+      if (!this.passesFilter(data, scenePath)) continue;
+      const pathKey = scenePath.split(path.sep).join('/');
+      const status = data.sceneStatus?.[pathKey];
+      nodes.push({
+        type: 'scene' as const,
+        chapterIndex,
+        sceneIndex: i,
+        uri: ch.sceneUris[i],
+        label: path.basename(ch.sceneUris[i].fsPath),
+        status,
+        data,
+      });
+    }
+    return nodes;
+  }
+
+  private getFlatSortedScenes(data: ManuscriptData): SceneNode[] {
+    const scenes: SceneNode[] = [];
+    for (let ci = 0; ci < data.chapters.length; ci++) {
+      scenes.push(...this.buildSceneNodes(data, data.chapters[ci], ci));
+    }
+    if (this.sortBy === 'timeline') {
+      scenes.sort((a, b) => {
+        const aKey = data.chapters[a.chapterIndex]?.scenePaths[a.sceneIndex]?.split(path.sep).join('/');
+        const bKey = data.chapters[b.chapterIndex]?.scenePaths[b.sceneIndex]?.split(path.sep).join('/');
+        const aTime = aKey ? (data.sceneMetadata?.[aKey]?.timeline ?? '') : '';
+        const bTime = bKey ? (data.sceneMetadata?.[bKey]?.timeline ?? '') : '';
+        return aTime.localeCompare(bTime);
+      });
+    } else if (this.sortBy === 'status') {
+      const order: Record<string, number> = { drafted: 0, revision: 1, review: 2, done: 3, spiked: 4, cut: 5 };
+      scenes.sort((a, b) => (order[a.status ?? ''] ?? 99) - (order[b.status ?? ''] ?? 99));
+    }
+    return scenes;
   }
 
   async handleDrag(
