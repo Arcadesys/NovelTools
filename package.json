@@ -95,8 +95,8 @@
         },
         "noveltools.chapterContextPath": {
           "type": "string",
-          "default": ".cursor/noveltools-chapter-context.md",
-          "description": "Path (relative to workspace root) where \"Set Chapter as Context\" writes the stitched chapter for agent review. Create a Cursor rule or @-mention this file in chat."
+          "default": ".noveltools/chapter-context.md",
+          "description": "Path (relative to workspace root) where \"Set Chapter as Context\" writes the stitched chapter for AI review. Open or @-mention this file in your AI chat (GitHub Copilot, Cursor, etc.) to give the AI context about the chapter."
         },
         "noveltools.stitched.sceneHeadingMode": {
           "type": "string",

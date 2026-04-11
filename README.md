@@ -1,6 +1,6 @@
 # NovelTools
 
-A Cursor/VS Code extension for long-form writing: scene stitching, manuscript sidebar with drag-and-drop, and word counts.
+A VS Code extension for long-form writing: scene stitching, manuscript sidebar with drag-and-drop, and word counts. Also works in Cursor and other VS Code-compatible editors.
 
 ## Features
 
@@ -109,7 +109,7 @@ Paths are relative to the directory containing `index.yaml`. Reordering in the s
 - **NovelTools: Open Stitched Manuscript** – open a virtual document with all scenes concatenated (with chapter headings).
 - **NovelTools: Open Stitched Chapter** – open a virtual document with one chapter’s scenes stitched (right‑click a chapter in the Manuscript view, or run from the Command Palette and pick a chapter).
 - **NovelTools: Open Stitched Selection** – shift-click one or more scenes in the Manuscript sidebar and stitch only that selection (always ordered by project file).
-- **NovelTools: Set Chapter as Context** – write the stitched chapter to a file (e.g. `.cursor/noveltools-chapter-context.md`) and open it so you can @-mention it in Cursor chat or reference it in a rule for agent review.
+- **NovelTools: Set Chapter as Context** – write the stitched chapter to a file (e.g. `.noveltools/chapter-context.md`) and open it so you can reference it in your AI chat for review.
 - **NovelTools: Refresh Manuscript View** – reload the project file in the sidebar.
 - **NovelTools: Build Project YAML** – create or update `noveltools.json` from the current manuscript outline (from the project file if present, otherwise from `noveltools.sceneFiles` or `noveltools.sceneGlob`). Use this when you don’t have a project file yet; after creating it, drag-and-drop in the sidebar will update the file.
 - **NovelTools: Convert Project to JSON** – one-time migration: save the current project as `noveltools.json` (use when you have an existing `noveltools.yaml`).
@@ -124,27 +124,30 @@ Paths are relative to the directory containing `index.yaml`. Reordering in the s
 | `noveltools.chapterGrouping` | When building from files without a project file: `flat` (one chapter) or `folder` (group by folder). |
 | `noveltools.wordCount.stripMarkdown` | Strip markdown before counting (default: false). |
 | `noveltools.wordCount.manuscriptScope` | `project` (use project file scene list) or `workspace` (all .md files). |
-| `noveltools.chapterContextPath` | Path (relative to workspace root) where **Set Chapter as Context** writes the stitched chapter (default: `.cursor/noveltools-chapter-context.md`). |
+| `noveltools.chapterContextPath` | Path (relative to workspace root) where **Set Chapter as Context** writes the stitched chapter (default: `.noveltools/chapter-context.md`). |
 | `noveltools.stitched.sceneHeadingMode` | Scene heading style for stitched output: `fileName` (default), `sceneNumber`, or `none`. Use `sceneNumber` or `none` to avoid filename-derived headings. |
 | `noveltools.indexYamlGlob` | Glob to discover index files like `Index.YAML` or `Index.md` (default: `**/*[iI]ndex*.{yaml,yml,YAML,YML,md,MD}`). |
 
-## Agent / Cursor context
+## AI context export
 
-**Set Chapter as Context** writes the selected chapter’s stitched markdown to the file set by `noveltools.chapterContextPath` (default: `.cursor/noveltools-chapter-context.md`), creates the parent directory if needed, and opens the file. To give an agent that chapter for review:
+**Set Chapter as Context** writes the selected chapter's stitched markdown to the file set by `noveltools.chapterContextPath` (default: `.noveltools/chapter-context.md`), creates the parent directory if needed, and opens the file. To use it for AI review:
 
-- **In chat**: @-mention the context file (e.g. `@.cursor/noveltools-chapter-context.md`) when starting a conversation.
-- **In rules**: Add a Cursor rule (e.g. in `.cursor/rules`) that tells the agent to use that file when you ask for a chapter review (e.g. “When the user asks for a chapter review, use the content of `.cursor/noveltools-chapter-context.md` as the chapter to review.”).
+- **GitHub Copilot Chat**: Use `#file:.noveltools/chapter-context.md` in the chat prompt, or open the file and ask Copilot to review it.
+- **Cursor**: @-mention the context file (e.g. `@.noveltools/chapter-context.md`) when starting a conversation. You can also add a Cursor rule (in `.cursor/rules`) that references the file for automated reviews.
+- **Other AI tools**: Open the file and copy/paste its contents into your preferred AI chat.
 
-Run **NovelTools: Set Chapter as Context** from the Manuscript view (right‑click a chapter) or from the Command Palette (then pick a chapter) before each review so the file always reflects the chapter you want in context.
+Run **NovelTools: Set Chapter as Context** from the Manuscript view (right-click a chapter) or from the Command Palette (then pick a chapter) before each review so the file always reflects the chapter you want in context.
 
-## Build and install into Cursor
+The export commands (**Export AI Context**, **Continuity Check**, **Sensitivity Review**, and scene-level AI actions) write context files to the `.noveltools/` folder at the workspace root.
+
+## Build and install into VS Code
 
 ### Option A: Run from source (development)
 
-1. Open the **NovelTools** folder in Cursor.
-2. **If you see “Cannot register 'noveltools.sceneGlob'. This property is already registered.”** — the extension is loaded twice (e.g. you have NovelTools installed and are also running from source). In the main Cursor window, open **Extensions**, find **NovelTools**, and **Uninstall**. Then use only the Extension Development Host (F5) when developing.
+1. Open the **NovelTools** folder in VS Code (or Cursor).
+2. **If you see "Cannot register 'noveltools.sceneGlob'. This property is already registered."** --- the extension is loaded twice (e.g. you have NovelTools installed and are also running from source). Open **Extensions** (Ctrl+Shift+X / Cmd+Shift+X), find **NovelTools**, and **Uninstall**. Then use only the Extension Development Host (F5) when developing.
 3. Build: run **`npm run dev`** or **`npm run compile`** (compiles TypeScript to `out/`).
-4. Press **F5** or use **Run and Debug** → **Run Extension**. A new Cursor window opens with the extension loaded (Extension Development Host).
+4. Press **F5** or use **Run and Debug** -> **Run Extension**. A new VS Code window opens with the extension loaded (Extension Development Host).
 
 ### Option B: Install as a packaged extension
 
@@ -153,16 +156,16 @@ Run **NovelTools: Set Chapter as Context** from the Manuscript view (right‑cli
    npm install
    npm run package
    ```
-   This compiles the extension and creates `noveltools-1.0.0.vsix` in the project root.
+   This compiles the extension and creates `noveltools-1.1.3.vsix` in the project root.
 
-2. Install the .vsix in Cursor:
-   - **Command Palette** (Cmd+Shift+P / Ctrl+Shift+P) → **Extensions: Install from VSIX…**
-   - Choose `noveltools-1.0.0.vsix` from this project folder.
+2. Install the .vsix in VS Code:
+   - **Command Palette** (Cmd+Shift+P / Ctrl+Shift+P) -> **Extensions: Install from VSIX...**
+   - Choose `noveltools-1.1.3.vsix` from this project folder.
 
-   **Or install from a GitHub release**: Download the `.vsix` from the [Releases](https://github.com/Arcadesys/NovelTools/releases) page, then use **Extensions: Install from VSIX…** as above.
-   - Reload Cursor if prompted.
+   **Or install from a GitHub release**: Download the `.vsix` from the [Releases](https://github.com/Arcadesys/NovelTools/releases) page, then use **Extensions: Install from VSIX...** as above.
+   - Reload VS Code if prompted.
 
-The extension will then appear in your sidebar (NovelTools icon) and in the Extensions list. **Open a folder** (File → Open Folder) that contains your project — not just a single file — so NovelTools can discover your index files.
+The extension will then appear in your sidebar (NovelTools icon) and in the Extensions list. **Open a folder** (File -> Open Folder) that contains your project --- not just a single file --- so NovelTools can discover your index files.
 
 ### Index.YAML or Index.md not found?
 

@@ -106,7 +106,7 @@ export function registerStitchedProvider(context: vscode.ExtensionContext): void
       const chapterLabel = ch?.title ?? `Chapter ${chapterIndex + 1}`;
       await vscode.window.showTextDocument(fileUri, { preview: false, viewColumn: vscode.ViewColumn.One });
       await vscode.window.showInformationMessage(
-        `"${chapterLabel}" written to ${relPath}. @-mention this file in chat for review, or add a Cursor rule that references it.`
+        `"${chapterLabel}" written to ${relPath}. Open this file in your AI chat to use it as context for review.`
       );
     })
   );

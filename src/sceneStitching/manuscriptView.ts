@@ -243,38 +243,15 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('noveltools.openProjectYaml', async () => {
       try {
-      // #region agent log
-      console.log('[NovelTools] openProjectYaml command started');
-      fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:openProjectYaml',message:'Command started',data:{workspaceFolders:!!vscode.workspace.workspaceFolders?.length},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       const openAndFocus = async (uri: vscode.Uri): Promise<void> => {
-        // #region agent log
-        fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:openAndFocus',message:'Opening file',data:{uri:uri.fsPath,uriScheme:uri.scheme},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-        // #endregion
-        try {
-          const doc = await vscode.workspace.openTextDocument(uri);
-          // #region agent log
-          fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:openAndFocus',message:'Document opened',data:{uri:uri.fsPath,fileName:doc.fileName},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-          // #endregion
-          await vscode.window.showTextDocument(doc, { preview: false });
-          // #region agent log
-          fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:openAndFocus',message:'Document shown',data:{uri:uri.fsPath},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-          // #endregion
-          await setActiveProjectUri(uri);
-          clearManuscriptCache(uri);
-          treeDataProvider.refresh();
-        } catch (error) {
-          // #region agent log
-          fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:openAndFocus',message:'Error opening file',data:{uri:uri.fsPath,error:String(error),errorMessage:error instanceof Error ? error.message : 'unknown'},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-          // #endregion
-          throw error;
-        }
+        const doc = await vscode.workspace.openTextDocument(uri);
+        await vscode.window.showTextDocument(doc, { preview: false });
+        await setActiveProjectUri(uri);
+        clearManuscriptCache(uri);
+        treeDataProvider.refresh();
       };
 
       const folders = vscode.workspace.workspaceFolders;
-      // #region agent log
-      fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:openProjectYaml',message:'Checking workspace folders',data:{hasFolders:!!folders?.length,folderCount:folders?.length ?? 0},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
 
       // Show file picker to let user select a project file.
       // Only pass defaultUri for local (file:) workspaces so the native dialog can open;
@@ -284,15 +261,6 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
         firstFolder?.uri.scheme === 'file'
           ? vscode.Uri.file(firstFolder.uri.fsPath)
           : undefined;
-      // #region agent log
-      console.log('[NovelTools] Before showOpenDialog, defaultUri:', defaultUri?.fsPath ?? 'undefined');
-      fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:openProjectYaml',message:'Before showOpenDialog',data:{defaultUri:defaultUri?.fsPath,workspaceRoot:firstFolder?.uri.fsPath,projectFileConfig:getProjectFile()},timestamp:Date.now(),hypothesisId:'H3,H5'})}).catch(()=>{});
-      // #endregion
-      
-      // #region agent log
-      console.log('[NovelTools] Calling showOpenDialog');
-      fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:openProjectYaml',message:'Calling showOpenDialog',data:{},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-      // #endregion
       const dialogOptions: vscode.OpenDialogOptions = {
         canSelectFiles: true,
         canSelectFolders: false,
@@ -309,42 +277,13 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
       }
       const selectedUri = await vscode.window.showOpenDialog(dialogOptions);
 
-      // #region agent log
-      console.log('[NovelTools] After showOpenDialog, selectedUri:', selectedUri?.map(u => u.fsPath), 'length:', selectedUri?.length);
-      fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:openProjectYaml',message:'After showOpenDialog',data:{selectedUri:selectedUri?.map(u => u.fsPath),selectedUriLength:selectedUri?.length,selectedUriIsUndefined:selectedUri === undefined,selectedUriIsNull:selectedUri === null},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
-
       if (selectedUri && selectedUri.length > 0) {
-        const uri = selectedUri[0];
-        try {
-          const bytes = await vscode.workspace.fs.readFile(uri);
-          const text = new TextDecoder('utf8').decode(bytes);
-          const firstThree = text.split(/\r?\n/).slice(0, 3);
-          const preview =
-            firstThree.length > 0
-              ? firstThree.join('\n').trimEnd()
-              : '(empty file)';
-          await vscode.window.showInformationMessage(
-            'Preview — first 3 lines',
-            { modal: true, detail: preview },
-            'OK'
-          );
-        } catch {
-          // If we can't read (e.g. remote file), skip preview and open
-        }
-        await openAndFocus(uri);
+        await openAndFocus(selectedUri[0]);
         return;
       }
 
       // If user cancelled, check if there's an existing project file and offer to open it
-      // #region agent log
-      console.log('[NovelTools] User cancelled file picker, checking for existing project file');
-      // #endregion
       const result = await getManuscript();
-      // #region agent log
-      console.log('[NovelTools] After getManuscript, hasProjectFileUri:', !!result.projectFileUri, 'uri:', result.projectFileUri?.fsPath);
-      fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:openProjectYaml',message:'After getManuscript',data:{hasProjectFileUri:!!result.projectFileUri,projectFileUri:result.projectFileUri?.fsPath,hasData:!!result.data},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
-      // #endregion
       if (result.projectFileUri) {
         const choice = await vscode.window.showInformationMessage(
           `Found existing project file: ${vscode.workspace.asRelativePath(result.projectFileUri)}. Open it?`,
@@ -381,9 +320,6 @@ export function registerManuscriptView(context: vscode.ExtensionContext): void {
         }
       }
       } catch (error) {
-        // #region agent log
-        fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:openProjectYaml',message:'Command error',data:{error:String(error),errorMessage:error instanceof Error ? error.message : 'unknown',errorStack:error instanceof Error ? error.stack : undefined},timestamp:Date.now(),hypothesisId:'H1,H2,H3'})}).catch(()=>{});
-        // #endregion
         await vscode.window.showErrorMessage(`Failed to open project file: ${error instanceof Error ? error.message : String(error)}`);
       }
     })
@@ -1251,12 +1187,9 @@ class ManuscriptTreeDataProvider
         await setActiveProjectUri(element.projectFileUri);
         const result = await getManuscriptByUri(element.projectFileUri);
         await updateViewContext(result);
-        // #region agent log
         if (!result.data) {
-          fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:getChildren(document)',message:'Document has no data',data:{uri:vscode.workspace.asRelativePath(element.projectFileUri)},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
           return [];
         }
-        // #endregion
         return result.data.chapters.map((ch, i) => ({
           type: 'chapter' as const,
           chapterIndex: i,
@@ -1267,11 +1200,6 @@ class ManuscriptTreeDataProvider
 
       const result = await getManuscript();
       await updateViewContext(result);
-      // #region agent log
-      if (!element && result.data) {
-        fetch('http://127.0.0.1:7247/ingest/c8aa33f8-be9b-4123-bf84-25f3a3583c8f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'manuscriptView.ts:getChildren(root)',message:'Tree root data',data:{projectFileRelative:result.projectFileUri?vscode.workspace.asRelativePath(result.projectFileUri):null,chaptersCount:result.data.chapters.length,sceneCounts:result.data.chapters.map(c=>c.sceneUris.length)},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
-      }
-      // #endregion
       if (!result.data && !element) {
         if (result.projectFileUri) {
           const rel = vscode.workspace.asRelativePath(result.projectFileUri);

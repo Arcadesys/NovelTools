@@ -31,7 +31,7 @@ export function getWordCountManuscriptScope(): 'project' | 'workspace' {
 }
 
 export function getChapterContextPath(): string {
-  return vscode.workspace.getConfiguration(SECTION).get<string>('chapterContextPath') ?? '.cursor/noveltools-chapter-context.md';
+  return vscode.workspace.getConfiguration(SECTION).get<string>('chapterContextPath') ?? '.noveltools/chapter-context.md';
 }
 
 export function getStitchedSceneHeadingMode(): StitchedSceneHeadingMode {
