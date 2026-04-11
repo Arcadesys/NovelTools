@@ -1,6 +1,7 @@
 .vscode/**
 .github/**
 .cursor/**
+.noveltools/**
 src/**
 test-fixtures/**
 out/test/**

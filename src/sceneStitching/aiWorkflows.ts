@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import { getManuscript } from './sceneList';
 import type { ManuscriptData, SceneMetadataEntry, SceneStatus, CharacterEntry, LocationEntry } from './projectData';
 
-const AI_CONTEXT_DIR = '.cursor';
+const AI_CONTEXT_DIR = '.noveltools';
 
 function prettySceneName(scenePath: string): string {
   return path.basename(scenePath, '.md').replace(/[-_]/g, ' ');
