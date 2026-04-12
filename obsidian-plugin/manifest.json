@@ -1,0 +1,10 @@
+{
+  "id": "noveltools",
+  "name": "NovelTools",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "Long-form writing: manuscript sidebar, scene navigation, word counts, and more.",
+  "author": "Arcades Ltd",
+  "authorUrl": "https://github.com/Arcadesys/NovelTools",
+  "isDesktopOnly": false
+}
