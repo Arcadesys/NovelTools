@@ -1,0 +1,219 @@
+/* NovelTools Obsidian Plugin Styles */
+
+.noveltools-manuscript-view {
+  padding: 8px 4px;
+  font-size: 0.9em;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.noveltools-title {
+  font-size: 1.1em;
+  font-weight: bold;
+  padding: 6px 8px 10px;
+  color: var(--text-normal);
+  border-bottom: 1px solid var(--background-modifier-border);
+  margin-bottom: 6px;
+}
+
+/* Chapters */
+.noveltools-chapter {
+  margin-bottom: 4px;
+}
+
+.noveltools-chapter-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--background-secondary);
+}
+
+.noveltools-chapter-header:hover {
+  background: var(--background-modifier-hover);
+}
+
+.noveltools-chapter-toggle {
+  font-size: 0.75em;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  width: 12px;
+  text-align: center;
+}
+
+.noveltools-chapter-title {
+  font-weight: 600;
+  flex: 1;
+  color: var(--text-normal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.noveltools-scene-count {
+  font-size: 0.78em;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Scenes */
+.noveltools-scenes {
+  padding-left: 4px;
+}
+
+.noveltools-scenes.collapsed {
+  display: none;
+}
+
+.noveltools-scene {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.noveltools-scene:hover {
+  background: var(--background-modifier-hover);
+}
+
+.noveltools-status-icon {
+  flex-shrink: 0;
+  font-size: 0.85em;
+  line-height: 1;
+}
+
+.noveltools-scene-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-normal);
+}
+
+/* Status colour tints */
+.noveltools-status-spiked .noveltools-scene-name,
+.noveltools-status-cut .noveltools-scene-name {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.noveltools-status-done .noveltools-scene-name {
+  color: var(--color-green);
+}
+
+/* Footer */
+.noveltools-footer {
+  display: flex;
+  gap: 6px;
+  padding: 8px 4px 4px;
+  border-top: 1px solid var(--background-modifier-border);
+  margin-top: 8px;
+}
+
+/* Buttons */
+.noveltools-btn {
+  flex: 1;
+  padding: 4px 6px;
+  font-size: 0.82em;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  cursor: pointer;
+  text-align: center;
+}
+
+.noveltools-btn:hover {
+  background: var(--background-modifier-hover);
+}
+
+/* Empty state */
+.noveltools-empty {
+  padding: 16px 8px;
+  text-align: center;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.noveltools-empty p {
+  margin: 0;
+  font-size: 0.88em;
+}
+
+/* Status bar */
+.noveltools-word-count {
+  font-size: 0.82em;
+  color: var(--text-muted);
+}
+
+/* InputModal / ConfirmModal / StatusPickerModal */
+.noveltools-modal-input {
+  width: 100%;
+  margin: 8px 0 12px;
+  padding: 6px 8px;
+  font-size: 1em;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.noveltools-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.noveltools-modal-btn {
+  padding: 5px 14px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  cursor: pointer;
+}
+
+.noveltools-modal-btn:hover {
+  background: var(--background-modifier-hover);
+}
+
+.noveltools-modal-btn.mod-cta {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
+.noveltools-modal-btn.mod-cta:hover {
+  background: var(--interactive-accent-hover);
+}
+
+.noveltools-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.noveltools-status-item {
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  cursor: pointer;
+  font-size: 0.95em;
+  text-align: left;
+  color: var(--text-normal);
+}
+
+.noveltools-status-item:hover {
+  background: var(--background-modifier-hover);
+}
